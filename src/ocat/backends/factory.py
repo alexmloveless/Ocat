@@ -11,14 +11,14 @@ from . import LLMBackend
 from .openai_backend import OpenAIBackend
 from .anthropic_backend import AnthropicBackend
 from .google_backend import GoogleBackend
-from ..config import OcatConfig
+from ..config import Config
 from ..exceptions import LLMError
 
 # Model name patterns for automatic provider detection
 OPENAI_MODELS = {
     "gpt-3.5-turbo",
     "gpt-4",
-    "gpt-4-turbo", 
+    "gpt-4-turbo",
     "gpt-4o",
     "gpt-4o-mini",
     "gpt-4-1106-preview",
@@ -28,7 +28,7 @@ OPENAI_MODELS = {
 
 ANTHROPIC_MODELS = {
     "claude-3-5-sonnet-20241022",
-    "claude-3-5-haiku-20241022", 
+    "claude-3-5-haiku-20241022",
     "claude-3-opus-20240229",
     "claude-3-sonnet-20240229",
     "claude-3-haiku-20240307",
@@ -66,7 +66,7 @@ def detect_provider_from_model(model: str) -> str:
         If the model is not recognized or provider cannot be determined.
     """
     model_lower = model.lower()
-    
+
     # Check for exact matches first
     if model in OPENAI_MODELS:
         return "openai"
@@ -74,7 +74,7 @@ def detect_provider_from_model(model: str) -> str:
         return "anthropic"
     if model in GOOGLE_MODELS:
         return "google"
-    
+
     # Check for partial matches by common prefixes
     if model_lower.startswith(("gpt-", "o1-")):
         return "openai"
@@ -82,7 +82,7 @@ def detect_provider_from_model(model: str) -> str:
         return "anthropic"
     elif model_lower.startswith(("gemini", "palm", "bison")):
         return "google"
-    
+
     # If no match found, raise an error
     raise LLMError(
         f"Unable to detect provider for model '{model}'. "
@@ -90,13 +90,13 @@ def detect_provider_from_model(model: str) -> str:
     )
 
 
-def create_backend(config: OcatConfig, api_key: Optional[str] = None) -> LLMBackend:
+def create_backend(config: Config, api_key: Optional[str] = None) -> LLMBackend:
     """
     Create the appropriate LLM backend based on configuration.
 
     Parameters
     ----------
-    config : OcatConfig
+    config : Config
         The Ocat configuration object containing model and LLM settings.
     api_key : str, optional
         Optional API key override. If not provided, will use environment variables.
@@ -113,16 +113,16 @@ def create_backend(config: OcatConfig, api_key: Optional[str] = None) -> LLMBack
     """
     model = config.llm.model
     provider = detect_provider_from_model(model)
-    
+
     backend_kwargs = {
         "model": model,
         "temperature": config.llm.temperature,
         "max_tokens": config.llm.max_tokens,
     }
-    
+
     if api_key:
         backend_kwargs["api_key"] = api_key
-    
+
     if provider == "openai":
         return OpenAIBackend(**backend_kwargs)
     elif provider == "anthropic":
@@ -166,16 +166,16 @@ def create_backend_for_model(
         If the provider cannot be determined or backend creation fails.
     """
     provider = detect_provider_from_model(model)
-    
+
     backend_kwargs = {
         "model": model,
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
-    
+
     if api_key:
         backend_kwargs["api_key"] = api_key
-    
+
     if provider == "openai":
         return OpenAIBackend(**backend_kwargs)
     elif provider == "anthropic":

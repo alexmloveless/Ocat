@@ -76,14 +76,16 @@ class MockLLMBackend(LLMBackend):
         # Cycle through responses based on call count
         response = self.responses[self.call_count % len(self.responses)]
         self.call_count += 1
-        
+
         # Add slight delay to simulate API latency
         if self.simulate_streaming:
             await asyncio.sleep(0.1)
-        
+
         return response
 
-    async def generate_streaming_response(self, messages: List[Dict]) -> AsyncIterator[str]:
+    async def generate_streaming_response(
+        self, messages: List[Dict]
+    ) -> AsyncIterator[str]:
         """
         Generate a mock streaming response.
 
@@ -100,21 +102,21 @@ class MockLLMBackend(LLMBackend):
         # Get the response that would be returned by generate_response
         response = self.responses[self.call_count % len(self.responses)]
         self.call_count += 1
-        
+
         if not self.simulate_streaming:
             # Return the whole response at once
             yield response
             return
-        
+
         # Split response into words for streaming simulation
         words = response.split()
         chunk_size = max(1, len(words) // 10)  # Aim for ~10 chunks
-        
+
         for i in range(0, len(words), chunk_size):
-            chunk = " ".join(words[i:i + chunk_size])
+            chunk = " ".join(words[i : i + chunk_size])
             if i + chunk_size < len(words):
                 chunk += " "  # Add space except for last chunk
-            
+
             yield chunk
             await asyncio.sleep(self.stream_delay)
 

@@ -117,7 +117,9 @@ class OpenAIBackend(LLMBackend):
         except Exception as e:
             raise LLMError(f"OpenAI API call failed: {e}")
 
-    async def generate_streaming_response(self, messages: List[Dict]) -> AsyncIterator[str]:
+    async def generate_streaming_response(
+        self, messages: List[Dict]
+    ) -> AsyncIterator[str]:
         """
         Generate a streaming response from OpenAI.
 

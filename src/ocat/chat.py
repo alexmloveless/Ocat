@@ -8,9 +8,11 @@ LLM interactions, and conversation management.
 from typing import List, Dict, Any, Optional, Union
 from dataclasses import dataclass
 import logging
+import asyncio
 
 from .utils.logging import setup_logger, LogLevel
 from .exceptions import PromptError, LLMError
+from .backends import LLMBackend, create_backend, MockLLMBackend
 import time
 
 from rich.console import Console
@@ -18,6 +20,7 @@ from rich.panel import Panel
 from rich.markdown import Markdown
 from rich.text import Text
 from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .config import Config
 
@@ -55,7 +58,7 @@ class ChatSession:
     and interaction with the LLM backend.
     """
 
-    def __init__(self, config: Config, console: Console):
+    def __init__(self, config: Config, console: Console, dummy_mode: bool = False):
         """
         Initialize a new chat session.
 
@@ -65,14 +68,31 @@ class ChatSession:
             Configuration object containing LLM settings
         console : Console
             Rich console instance for output
+        dummy_mode : bool, default=False
+            Whether to use mock backend instead of real LLM API
         """
         self.config = config
         self.console = console
         self.messages: List[Message] = []
+        self.dummy_mode = dummy_mode
 
         # Set up logging for chat session
         self.logger = setup_logger("ocat.chat", LogLevel[config.logging.level], config)
         self.logger.debug("Chat session initialized")
+
+        # Initialize LLM backend
+        try:
+            if dummy_mode:
+                self.llm_backend = MockLLMBackend()
+                self.logger.info("Using mock LLM backend for dummy mode")
+            else:
+                self.llm_backend = create_backend(config)
+                self.logger.info(
+                    f"Initialized LLM backend for model: {config.llm.model}"
+                )
+        except LLMError as e:
+            self.logger.error(f"Failed to initialize LLM backend: {e}")
+            raise
 
         # Add system message if configured (from system prompt files)
         if config.llm.system_prompt_files:
@@ -84,7 +104,7 @@ class ChatSession:
                     f"Loaded system prompt from {len(config.llm.system_prompt_files)} file(s)"
                 )
 
-    def process_message(self, user_input: str) -> None:
+    async def process_message(self, user_input: str) -> None:
         """
         Process a user message and generate a response.
 
@@ -104,7 +124,7 @@ class ChatSession:
         try:
             # Generate response from LLM
             self.logger.debug("Generating assistant response")
-            response = self._generate_response()
+            response = await self._generate_response()
 
             # Add assistant message to conversation
             assistant_message = Message(role="assistant", content=response)
@@ -121,31 +141,50 @@ class ChatSession:
             self.logger.error(f"Unexpected error generating response: {e}")
             self.console.print(f"Unexpected error: {e}", style="red")
 
-    def _generate_response(self) -> str:
+    async def _generate_response(self) -> str:
         """
-        Generate a response from the LLM.
+        Generate a response from the LLM using the configured backend.
 
         Returns
         -------
         str
             The generated response
 
-        Note
-        ----
-        This is a placeholder implementation. In a real implementation,
-        this would connect to an actual LLM API (OpenAI, Anthropic, etc.).
+        Raises
+        ------
+        LLMError
+            If the LLM API call fails
         """
-        # Placeholder response - in real implementation, this would call the LLM API
-        responses = [
-            "I'm a placeholder response. To connect to real LLMs, implement the API client in this method.",
-            "This is where the actual LLM integration would happen. You'll need to add API calls here.",
-            "Hello! I'm currently running in demo mode. Configure your API settings to enable real LLM responses.",
-            "I understand you're testing the CLI. The LLM integration is ready to be implemented here.",
-        ]
+        # Prepare messages for LLM API
+        api_messages = self.get_conversation_history()
 
-        import random
+        self.logger.debug(f"Sending {len(api_messages)} messages to LLM backend")
 
-        return random.choice(responses)
+        # Show progress indicator for non-dummy mode
+        if not self.dummy_mode:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=self.console,
+                transient=True,
+            ) as progress:
+                progress.add_task(description="Generating response...", total=None)
+
+                try:
+                    response = await self.llm_backend.generate_response(api_messages)
+                except Exception as e:
+                    self.logger.error(f"LLM backend error: {e}")
+                    raise LLMError(f"Failed to generate response: {e}")
+        else:
+            # For dummy mode, just call the backend directly
+            try:
+                response = await self.llm_backend.generate_response(api_messages)
+            except Exception as e:
+                self.logger.error(f"Mock backend error: {e}")
+                raise LLMError(f"Failed to generate mock response: {e}")
+
+        self.logger.debug(f"Received response with {len(response)} characters")
+        return response
 
     def _display_message(self, message: Message) -> None:
         """

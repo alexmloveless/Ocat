@@ -24,7 +24,9 @@ class LLMBackend(ABC):
         pass
 
     @abstractmethod
-    async def generate_streaming_response(self, messages: List[Dict]) -> AsyncIterator[str]:
+    async def generate_streaming_response(
+        self, messages: List[Dict]
+    ) -> AsyncIterator[str]:
         pass
 
 
@@ -33,16 +35,19 @@ from .openai_backend import OpenAIBackend
 from .anthropic_backend import AnthropicBackend
 from .google_backend import GoogleBackend
 from .mock_backend import MockLLMBackend
-from .factory import create_backend, create_backend_for_model, detect_provider_from_model
+from .factory import (
+    create_backend,
+    create_backend_for_model,
+    detect_provider_from_model,
+)
 
 __all__ = [
     "LLMBackend",
     "OpenAIBackend",
-    "AnthropicBackend", 
+    "AnthropicBackend",
     "GoogleBackend",
     "MockLLMBackend",
     "create_backend",
     "create_backend_for_model",
     "detect_provider_from_model",
 ]
-
