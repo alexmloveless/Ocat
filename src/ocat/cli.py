@@ -9,6 +9,7 @@ import sys
 import argparse
 from typing import Optional, List
 import logging
+import asyncio
 
 from .utils.logging import setup_logger, LogLevel
 
@@ -242,47 +243,12 @@ def main(args: Optional[List[str]] = None) -> int:
         # Display welcome message
         display_welcome(console)
 
-        # Initialize chat session
-        chat_session = ChatSession(config, console)
+        # Initialize chat session (check for dummy mode)
+        dummy_mode = getattr(parsed_args, "dummy_mode", False)
+        chat_session = ChatSession(config, console, dummy_mode=dummy_mode)
 
-        # Create prompt session with history and auto-suggest
-        prompt_session: PromptSession = PromptSession(
-            history=InMemoryHistory(), auto_suggest=AutoSuggestFromHistory()
-        )
-
-        # Main interactive loop
-        while True:
-            try:
-                # Get user input
-                user_input = prompt_session.prompt("🐱 > ", multiline=False)
-
-                # Handle empty input
-                if not user_input.strip():
-                    continue
-
-                # Handle built-in commands
-                if user_input.lower() in ["exit", "quit", "q"]:
-                    console.print("Goodbye! 👋", style="green")
-                    break
-                elif user_input.lower() in ["help", "h"]:
-                    chat_session.show_help()
-                    continue
-                elif user_input.lower() == "clear":
-                    console.clear()
-                    display_welcome(console)
-                    continue
-
-                # Process chat message
-                chat_session.process_message(user_input)
-
-            except KeyboardInterrupt:
-                console.print("\\n\\nInterrupted by user", style="yellow")
-                break
-            except EOFError:
-                console.print("\\n\\nGoodbye! 👋", style="green")
-                break
-
-        return 0
+        # Run the async main loop
+        return asyncio.run(run_interactive_chat(chat_session, console, config))
 
     except Exception as e:
         # Create a basic logger for error reporting if config loading failed
@@ -357,6 +323,74 @@ def handle_headless_query_vector_store(
     except Exception as e:
         console.print(f"[red]Error querying vector store: {e}[/red]")
         return 1
+
+
+async def run_interactive_chat(
+    chat_session: ChatSession, console: Console, config: Config
+) -> int:
+    """
+    Run the main interactive chat loop.
+
+    Parameters
+    ----------
+    chat_session : ChatSession
+        The chat session instance
+    console : Console
+        Rich console for output
+    config : Config
+        Configuration instance
+
+    Returns
+    -------
+    int
+        Exit code (0 for success, 1 for error)
+    """
+    # Create prompt session with history and auto-suggest
+    prompt_session: PromptSession = PromptSession(
+        history=InMemoryHistory(), auto_suggest=AutoSuggestFromHistory()
+    )
+
+    # Main interactive loop
+    while True:
+        try:
+            # Get user input
+            user_input = await asyncio.to_thread(
+                prompt_session.prompt, "🐱 > ", multiline=False
+            )
+
+            # Handle empty input
+            if not user_input.strip():
+                continue
+
+            # Handle built-in commands
+            if user_input.lower() in ["exit", "quit", "q"]:
+                console.print("Goodbye! 👋", style="green")
+                break
+            elif user_input.lower() in ["help", "h"]:
+                chat_session.show_help()
+                continue
+            elif user_input.lower() == "clear":
+                console.clear()
+                display_welcome(console)
+                continue
+
+            # Process chat message
+            await chat_session.process_message(user_input)
+
+        except KeyboardInterrupt:
+            console.print("\n\nInterrupted by user", style="yellow")
+            break
+        except EOFError:
+            console.print("\n\nGoodbye! 👋", style="green")
+            break
+        except Exception as e:
+            console.print(f"Unexpected error: {e}", style="red")
+            if config.logging.level == "DEBUG":
+                import traceback
+
+                console.print(traceback.format_exc(), style="dim red")
+
+    return 0
 
 
 def handle_headless_vector_store_stats(config: Config, console: Console) -> int:

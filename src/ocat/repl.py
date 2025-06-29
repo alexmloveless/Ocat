@@ -32,7 +32,7 @@ def start_repl(console: Optional[Console] = None) -> None:
         auto_suggest=AutoSuggestFromHistory(),
         multiline=True,
     )
-    
+
     console.print(
         "Entering REPL. Type your message or 'exit' to quit.", style="italic blue"
     )
