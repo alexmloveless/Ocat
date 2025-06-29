@@ -229,35 +229,56 @@ class ChatSession:
 
         self.logger.debug(f"Sending {len(api_messages)} messages to LLM backend")
 
-        # Show progress indicator for non-dummy mode
+        # Show progress indicator for non-dummy mode with better cancellation support
         if not self.dummy_mode:
             with Progress(
                 SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
+                TextColumn("[progress.description]{task.description}", style="cyan"),
+                TextColumn("[dim](Press Ctrl+C to cancel)[/dim]"),
                 console=self.console,
                 transient=True,
             ) as progress:
-                progress.add_task(description="Generating response...", total=None)
+                task = progress.add_task(description="Generating response...", total=None)
 
                 try:
-                    response = await self.llm_backend.generate_response(api_messages)
+                    # Add timeout and better error handling
+                    response = await asyncio.wait_for(
+                        self.llm_backend.generate_response(api_messages),
+                        timeout=120.0  # 2 minute timeout
+                    )
+                except asyncio.TimeoutError:
+                    self.logger.error("LLM request timed out")
+                    raise LLMError("Request timed out after 2 minutes")
+                except asyncio.CancelledError:
+                    self.logger.info("LLM request cancelled by user")
+                    raise LLMError("Request cancelled by user")
                 except Exception as e:
                     self.logger.error(f"LLM backend error: {e}")
                     raise LLMError(f"Failed to generate response: {e}")
         else:
-            # For dummy mode, just call the backend directly
-            try:
-                response = await self.llm_backend.generate_response(api_messages)
-            except Exception as e:
-                self.logger.error(f"Mock backend error: {e}")
-                raise LLMError(f"Failed to generate mock response: {e}")
+            # For dummy mode, show a brief progress indicator
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}", style="yellow"),
+                console=self.console,
+                transient=True,
+            ) as progress:
+                task = progress.add_task(description="Generating mock response...", total=None)
+                
+                try:
+                    # Add a small delay to simulate processing
+                    await asyncio.sleep(0.5)
+                    response = await self.llm_backend.generate_response(api_messages)
+                except Exception as e:
+                    self.logger.error(f"Mock backend error: {e}")
+                    raise LLMError(f"Failed to generate mock response: {e}")
 
         self.logger.debug(f"Received response with {len(response)} characters")
         return response
 
     def _display_message(self, message: Message) -> None:
         """
-        Display a message in the console.
+        Display a message in the console with enhanced formatting.
 
         Parameters
         ----------
@@ -265,26 +286,64 @@ class ChatSession:
             The message to display
         """
         if message.role == "user":
-            # Display user message with simple formatting
-            user_text = Text("You: ", style="bold blue")
-            user_text.append(message.content)
-            self.console.print(user_text)
+            # Display user message with configurable formatting
+            if self.config.display.response_on_new_line:
+                # User label on its own line
+                user_label = Text(f"{self.config.display.user_label}:", style="bold bright_blue")
+                self.console.print(user_label)
+                self.console.print(message.content, style="white")
+            else:
+                # User label on same line
+                user_text = Text(f"{self.config.display.user_label}: ", style="bold bright_blue")
+                user_text.append(message.content, style="white")
+                self.console.print(user_text)
+            
+            # Add spacing for better readability
             self.console.print()
 
         elif message.role == "assistant":
-            # Display assistant message in a panel with markdown formatting
+            # Enhanced assistant message display with better spacing
             try:
                 # Try to render as markdown for better formatting
-                content: Union[Markdown, str] = Markdown(message.content)
-            except:
+                code_theme = "monokai" if self.config.display.high_contrast else "default"
+                content: Union[Markdown, str] = Markdown(
+                    message.content,
+                    code_theme=code_theme
+                )
+            except Exception:
                 # Fallback to plain text if markdown parsing fails
                 content = message.content
 
+            # Use configurable assistant label
+            assistant_title = f"🤖 {self.config.display.assistant_label}"
+            
+            # Choose colors based on high contrast setting
+            border_style = "bright_green" if self.config.display.high_contrast else "green"
+            
+            # Create panel with accessibility-friendly styling
             panel = Panel(
-                content, title="🤖 Assistant", border_style="green", padding=(1, 2)
+                content,
+                title=assistant_title,
+                border_style=border_style,
+                padding=(1, 2),
+                width=self.config.display.line_width if self.config.display.line_width > 0 else None
             )
+            
+            if self.config.display.response_on_new_line:
+                self.console.print()  # Extra line before response for clarity
+                
             self.console.print(panel)
-            self.console.print()
+            
+            # Add configurable exchange delimiter for visual separation
+            delimiter_length = min(
+                self.config.display.exchange_delimiter_length, 
+                self.config.display.line_width
+            )
+            delimiter = self.config.display.exchange_delimiter * delimiter_length
+            
+            delimiter_style = "dim bright_black" if self.config.display.high_contrast else "dim"
+            self.console.print(delimiter, style=delimiter_style)
+            self.console.print()  # Extra spacing after each exchange
 
     def show_help(self) -> None:
         """Display help information for available commands."""

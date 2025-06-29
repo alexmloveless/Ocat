@@ -133,7 +133,7 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def display_welcome(console: Console) -> None:
+def display_welcome(console: Console, config: Optional[Config] = None) -> None:
     """
     Display welcome message and basic instructions.
 
@@ -141,14 +141,35 @@ def display_welcome(console: Console) -> None:
     ----------
     console : Console
         Rich console instance for output
+    config : Optional[Config]
+        Configuration instance to show model and profile info
     """
-    welcome_text = Text("Welcome to Ocat!", style="bold blue")
-    subtitle = Text("An interactive LLM Chat CLI tool", style="italic")
-
+    # Create welcome message as specified in bootstrap
+    welcome_lines = [
+        "Welcome to Ocat - Otherworldy Chats at (the) Terminal",
+        "Type your messages to chat with the LLM.",
+        "Type /help to see available commands.",
+        "Type /exit to quit the application.",
+    ]
+    
+    # Add model and profile information if config is available
+    if config:
+        welcome_lines.append(f"Model: {config.llm.model}")
+        if config.profile_name:
+            welcome_lines.append(f"Profile: {config.profile_name}")
+    
+    # Create panel with proper width consideration
+    welcome_content = "\n".join(welcome_lines)
+    
+    # Use line width from config if available, otherwise default to 70
+    panel_width = config.display.line_width - 4 if config else 70
+    
     panel = Panel(
-        f"{welcome_text}\n{subtitle}\n\nType 'help' for commands or 'exit' to quit.",
+        welcome_content,
         title="🐱 Ocat",
-        border_style="blue",
+        border_style="bright_blue",
+        width=min(panel_width, 76),  # Max width for readability
+        padding=(1, 2)
     )
 
     console.print(panel)
@@ -242,7 +263,7 @@ def main(args: Optional[List[str]] = None) -> int:
             return handle_headless_vector_store_stats(config, console)
 
         # Display welcome message
-        display_welcome(console)
+        display_welcome(console, config)
 
         # Initialize chat session (check for dummy mode)
         dummy_mode = getattr(parsed_args, "dummy_mode", False)
@@ -433,15 +454,17 @@ async def run_interactive_chat(
                 continue
             elif user_input.lower() == "clear":
                 console.clear()
-                display_welcome(console)
+                display_welcome(console, config)
                 continue
 
             # Process chat message
             await chat_session.process_message(user_input)
 
         except KeyboardInterrupt:
-            console.print("\n\nInterrupted by user", style="yellow")
-            break
+            console.print("\n\n⚠️  Operation cancelled by user", style="bright_yellow")
+            # If we're in the middle of processing, give feedback
+            console.print("Press Ctrl+C again to exit the application.", style="dim")
+            continue
         except EOFError:
             console.print("\n\nGoodbye! 👋", style="green")
             break

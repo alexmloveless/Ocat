@@ -58,6 +58,11 @@ def test_main_basic_flow(
     mock_config.logging = mock_logging
     mock_config.llm = Mock()
     mock_config.llm.model = "gpt-4o-mini"
+    mock_config.profile_name = "Test Profile"
+    # Add display config for the welcome message
+    mock_display = Mock()
+    mock_display.line_width = 80
+    mock_config.display = mock_display
     mock_config_load.return_value = mock_config
 
     mock_prompt = Mock()

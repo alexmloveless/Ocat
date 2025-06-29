@@ -121,6 +121,12 @@ class DisplayConfig(BaseModel):
         CLI line width (characters)
     response_on_new_line : bool
         Whether responses start on new line
+    exchange_delimiter : str
+        Character(s) to use for separating exchanges
+    exchange_delimiter_length : int
+        Length of exchange delimiter line
+    high_contrast : bool
+        Use high contrast colors for accessibility
     """
 
     user_label: str = Field(default="User", description="Label for user input")
@@ -132,6 +138,15 @@ class DisplayConfig(BaseModel):
     line_width: int = Field(default=80, gt=0, description="CLI line width (characters)")
     response_on_new_line: bool = Field(
         default=True, description="Start responses on new line"
+    )
+    exchange_delimiter: str = Field(
+        default="─", description="Character(s) for exchange separation"
+    )
+    exchange_delimiter_length: int = Field(
+        default=60, gt=0, description="Length of exchange delimiter line"
+    )
+    high_contrast: bool = Field(
+        default=True, description="Use high contrast colors for accessibility"
     )
 
 

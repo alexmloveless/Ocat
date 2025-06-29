@@ -32,6 +32,9 @@ display:
   no_color: false                    # Disable ANSI color output
   line_width: 80                     # CLI line width (characters)
   response_on_new_line: true         # Start responses on new line
+  exchange_delimiter: "─"            # Character(s) for exchange separation  
+  exchange_delimiter_length: 60      # Length of exchange delimiter line
+  high_contrast: true                # Use high contrast colors for accessibility
 
 # Logging Configuration
 logging:
