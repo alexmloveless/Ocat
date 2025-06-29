@@ -9,10 +9,12 @@ from typing import List, Dict, Any, Optional, Union
 from dataclasses import dataclass
 import logging
 import asyncio
+import uuid
 
 from .utils.logging import setup_logger, LogLevel
-from .exceptions import PromptError, LLMError
+from .exceptions import PromptError, LLMError, VectorStoreError
 from .backends import LLMBackend, create_backend, MockLLMBackend
+from .vector_store import ConversationVectorStore, Exchange
 import time
 
 from rich.console import Console
@@ -80,6 +82,23 @@ class ChatSession:
         self.logger = setup_logger("ocat.chat", LogLevel[config.logging.level], config)
         self.logger.debug("Chat session initialized")
 
+        # Generate session and thread IDs for vector store
+        self.session_id = str(uuid.uuid4())
+        self.thread_id = str(uuid.uuid4())
+        self.logger.debug(f"Session ID: {self.session_id}, Thread ID: {self.thread_id}")
+
+        # Initialize vector store for conversation memory
+        self.vector_store: Optional[ConversationVectorStore] = None
+        try:
+            if config.vector_store.enabled:
+                self.vector_store = ConversationVectorStore(config)
+                self.logger.info("Vector store initialized for conversation memory")
+            else:
+                self.logger.info("Vector store disabled in configuration")
+        except VectorStoreError as e:
+            self.logger.error(f"Failed to initialize vector store: {e}")
+            # Continue without vector store
+
         # Initialize LLM backend
         try:
             if dummy_mode:
@@ -134,6 +153,22 @@ class ChatSession:
             # Display assistant message
             self._display_message(assistant_message)
 
+            # Store exchange in vector store for future context retrieval
+            if self.vector_store:
+                try:
+                    exchange_id = self.vector_store.add_exchange(
+                        user_prompt=user_input,
+                        assistant_response=response,
+                        thread_id=self.thread_id,
+                        session_id=self.session_id,
+                    )
+                    self.logger.debug(f"Stored exchange {exchange_id} in vector store")
+                except VectorStoreError as e:
+                    self.logger.warning(
+                        f"Failed to store exchange in vector store: {e}"
+                    )
+                    # Continue without storing - not critical for functionality
+
         except LLMError as e:
             self.logger.error(f"LLM error: {e}")
             self.console.print(f"LLM error: {e}", style="red")
@@ -155,8 +190,17 @@ class ChatSession:
         LLMError
             If the LLM API call fails
         """
-        # Prepare messages for LLM API
-        api_messages = self.get_conversation_history()
+        # Get recent conversation for context query
+        recent_messages = self.messages[-self.config.vector_store.chat_window :]
+        query_text = " ".join(
+            [msg.content for msg in recent_messages if msg.role == "user"]
+        )
+
+        # Retrieve similar exchanges for context if vector store is enabled
+        context_exchanges = await self._retrieve_context(query_text)
+
+        # Prepare messages for LLM API, including context if available
+        api_messages = self._prepare_messages_with_context(context_exchanges)
 
         self.logger.debug(f"Sending {len(api_messages)} messages to LLM backend")
 
@@ -270,6 +314,38 @@ class ChatSession:
             f"Cleared conversation history ({message_count - len(system_messages)} messages removed)"
         )
 
+    async def _retrieve_context(self, query_text: str) -> List[Exchange]:
+        """
+        Retrieve context for a given user query from vector store.
+
+        Parameters
+        ----------
+        query_text : str
+            The query text to retrieve context for
+
+        Returns
+        -------
+        List[Exchange]
+            List of similar exchanges based on context
+
+        """
+        if self.vector_store:
+            try:
+                similar_exchanges = self.vector_store.find_similar_exchanges(
+                    query_text=query_text,
+                    n_results=self.config.vector_store.context_results,
+                    exclude_thread_id=self.thread_id,
+                )
+                self.logger.debug(
+                    f"Retrieved {len(similar_exchanges)} similar exchanges"
+                )
+                return similar_exchanges
+            except VectorStoreError as e:
+                self.logger.warning(
+                    f"Failed to retrieve context from vector store: {e}"
+                )
+        return []
+
     def _load_system_prompts(self, prompt_files: List[str]) -> str:
         """
         Load and concatenate system prompt files.
@@ -298,3 +374,62 @@ class ChatSession:
                 raise PromptError(f"Failed to load system prompt from {file_path}: {e}")
 
         return "\n\n".join(system_prompts)
+
+    def _prepare_messages_with_context(
+        self, context_exchanges: List[Exchange]
+    ) -> List[Dict[str, Any]]:
+        """
+        Prepare messages for LLM API including context from vector store.
+
+        Parameters
+        ----------
+        context_exchanges : List[Exchange]
+            Similar exchanges from vector store to use as context
+
+        Returns
+        -------
+        List[Dict[str, Any]]
+            Messages formatted for LLM API with context included
+        """
+        # Start with conversation history
+        api_messages = self.get_conversation_history()
+
+        # If we have context exchanges, inject them before the current conversation
+        if context_exchanges and self.config.vector_store.enabled:
+            # Create a context message with relevant exchanges
+            context_content = (
+                "Here are some relevant previous conversations for context:\n\n"
+            )
+
+            for i, exchange in enumerate(
+                context_exchanges[: self.config.vector_store.context_results]
+            ):
+                context_content += f"Context {i+1}:\n"
+                context_content += f"User: {exchange.user_prompt}\n"
+                context_content += f"Assistant: {exchange.assistant_response}\n\n"
+
+            context_content += (
+                "Please use this context to inform your response when relevant.\n"
+            )
+
+            # Insert context after system messages but before conversation
+            system_messages = [msg for msg in api_messages if msg["role"] == "system"]
+            conversation_messages = [
+                msg for msg in api_messages if msg["role"] != "system"
+            ]
+
+            # Build final message list
+            final_messages = system_messages
+
+            # Add context message if we have context
+            if context_exchanges:
+                final_messages.append({"role": "system", "content": context_content})
+                self.logger.debug(
+                    f"Added context from {len(context_exchanges)} exchanges"
+                )
+
+            final_messages.extend(conversation_messages)
+
+            return final_messages
+
+        return api_messages

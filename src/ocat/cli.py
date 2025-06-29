@@ -6,6 +6,7 @@ handling user input, command parsing, and interaction coordination.
 """
 
 import sys
+import os
 import argparse
 from typing import Optional, List
 import logging
@@ -269,7 +270,7 @@ def handle_headless_add_to_vector_store(
     file_path: str, config: Config, console: Console
 ) -> int:
     """
-    Handle headless mode operation: add document to vector store.
+    Handle headless mode operation: add text document to vector store.
 
     Parameters
     ----------
@@ -286,10 +287,40 @@ def handle_headless_add_to_vector_store(
         Exit code (0 for success, 1 for error)
     """
     try:
+        from .vector_store import ConversationVectorStore
+        import uuid
+        import time
+
         console.print(f"[yellow]Adding document to vector store: {file_path}[/yellow]")
-        # TODO: Implement vector store addition when vector store module is ready
-        console.print("[red]Vector store not yet implemented[/red]")
-        return 1
+
+        # Check if file exists
+        if not os.path.exists(file_path):
+            console.print(f"[red]File not found: {file_path}[/red]")
+            return 1
+
+        # Read file content
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+
+        if not content:
+            console.print(f"[red]File is empty: {file_path}[/red]")
+            return 1
+
+        # Initialize vector store
+        vector_store = ConversationVectorStore(config)
+
+        # Create exchange from document content
+        exchange_id = vector_store.add_exchange(
+            user_prompt=f"Document: {os.path.basename(file_path)}",
+            assistant_response=content,
+            thread_id=str(uuid.uuid4()),
+            session_id=str(uuid.uuid4()),
+        )
+
+        console.print(f"[green]Successfully added document to vector store[/green]")
+        console.print(f"Exchange ID: {exchange_id}")
+        return 0
+
     except Exception as e:
         console.print(f"[red]Error adding document: {e}[/red]")
         return 1
@@ -316,10 +347,41 @@ def handle_headless_query_vector_store(
         Exit code (0 for success, 1 for error)
     """
     try:
+        from .vector_store import ConversationVectorStore
+
         console.print(f"[yellow]Querying vector store: {query}[/yellow]")
-        # TODO: Implement vector store querying when vector store module is ready
-        console.print("[red]Vector store not yet implemented[/red]")
-        return 1
+
+        # Initialize vector store
+        vector_store = ConversationVectorStore(config)
+
+        # Find similar exchanges
+        similar_exchanges = vector_store.find_similar_exchanges(
+            query_text=query, n_results=config.vector_store.context_results
+        )
+
+        if not similar_exchanges:
+            console.print("[yellow]No similar exchanges found.[/yellow]")
+            return 0
+
+        console.print(
+            f"[green]Found {len(similar_exchanges)} similar exchanges:[/green]\n"
+        )
+
+        for i, exchange in enumerate(similar_exchanges, 1):
+            console.print(f"[bold cyan]Result {i}:[/bold cyan]")
+            console.print(f"Exchange ID: {exchange.exchange_id}")
+            console.print(f"Thread ID: {exchange.thread_id}")
+            console.print(f"Timestamp: {exchange.timestamp}")
+            console.print(f"User: {exchange.user_prompt}")
+            console.print(
+                f"Assistant: {exchange.assistant_response[:200]}..."
+                if len(exchange.assistant_response) > 200
+                else f"Assistant: {exchange.assistant_response}"
+            )
+            console.print("" + "-" * 50)
+
+        return 0
+
     except Exception as e:
         console.print(f"[red]Error querying vector store: {e}[/red]")
         return 1
@@ -410,10 +472,31 @@ def handle_headless_vector_store_stats(config: Config, console: Console) -> int:
         Exit code (0 for success, 1 for error)
     """
     try:
-        console.print("[yellow]Vector store statistics:[/yellow]")
-        # TODO: Implement vector store stats when vector store module is ready
-        console.print("[red]Vector store not yet implemented[/red]")
-        return 1
+        from .vector_store import ConversationVectorStore
+        from rich.table import Table
+
+        console.print("[yellow]Vector store statistics:[/yellow]\n")
+
+        # Initialize vector store
+        vector_store = ConversationVectorStore(config)
+
+        # Get statistics
+        stats = vector_store.get_stats()
+
+        # Create a table for better display
+        table = Table(title="Vector Store Statistics")
+        table.add_column("Metric", style="cyan", no_wrap=True)
+        table.add_column("Value", style="white")
+
+        table.add_row("Total Exchanges", str(stats["total_exchanges"]))
+        table.add_row("Index Size", str(stats["index_size"]))
+        table.add_row("Store Path", stats["store_path"])
+        table.add_row("Vector Dimension", str(stats["dimension"]))
+        table.add_row("Embedding Model", stats["embedding_model"])
+
+        console.print(table)
+        return 0
+
     except Exception as e:
         console.print(f"[red]Error getting vector store stats: {e}[/red]")
         return 1
