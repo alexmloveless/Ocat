@@ -316,7 +316,7 @@ class ChatSession:
 
     async def _retrieve_context(self, query_text: str) -> List[Exchange]:
         """
-        Retrieve context for a given user query from vector store.
+        Retrieve relevant conversation context using enhanced LangGraph memory.
 
         Parameters
         ----------
@@ -331,10 +331,10 @@ class ChatSession:
         """
         if self.vector_store:
             try:
-                similar_exchanges = self.vector_store.find_similar_exchanges(
+                similar_exchanges = self.vector_store.get_episodic_context(
                     query_text=query_text,
-                    n_results=self.config.vector_store.context_results,
-                    exclude_thread_id=self.thread_id,
+                    max_context_length=min(2000, self.config.llm.max_tokens // 4),  # Estimate max length conservatively
+                    relevance_threshold=self.config.vector_store.similarity_threshold
                 )
                 self.logger.debug(
                     f"Retrieved {len(similar_exchanges)} similar exchanges"

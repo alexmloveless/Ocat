@@ -2,8 +2,8 @@
 
 profile_name: "Default"              # Name of the profile for this configuration
 
-# Model Configuration
-model_config:
+# LLM Configuration
+llm:
   model: "gpt-4o-mini"               # Name of the model to use
   temperature: 1.0                   # Controls randomness in responses (0.0-1.0)
   max_tokens: 4000                   # Maximum tokens for responses
