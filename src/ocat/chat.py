@@ -67,9 +67,9 @@ class ChatSession:
         self.messages: List[Message] = []
         
         # Add system message if configured (from system prompt files)
-        if config.model_config.system_prompt_files:
+        if config.llm.system_prompt_files:
             # Load and concatenate system prompt files
-            system_content = self._load_system_prompts(config.model_config.system_prompt_files)
+            system_content = self._load_system_prompts(config.llm.system_prompt_files)
             if system_content:
                 self.messages.append(Message(
                     role="system",

@@ -12,8 +12,15 @@ OCAT is a terminal-based chat client and general purpose LLM backend designed to
   - ✅ Implemented YAML-only configuration loading
   - ✅ Updated CLI and chat.py for new config structure
   - ✅ Created default ocat.yaml configuration file
-- ⏳ **Task 1.1.2**: Implement comprehensive configuration schema (NEXT)
-- ⏳ **Task 1.1.3**: Add command-line argument overrides (PENDING)
+- ✅ **Task 1.1.2**: Implement comprehensive configuration schema (COMPLETED)
+  - ✅ All bootstrap config fields implemented with proper types
+  - ✅ Pydantic field validation with constraints and custom validators
+  - ✅ Environment variable overrides functional
+  - ✅ Nested config models for organization (ModelConfig, VectorStoreConfig, etc.)
+- ✅ **Task 1.1.3**: Add command-line argument overrides (COMPLETED)
+  - ✅ CLI parser supports all major config fields as arguments
+  - ✅ CLI argument overrides applied with correct precedence
+  - ✅ Interactive and headless modes tested with CLI args
 
 ## Directory Structure
 ```
@@ -52,9 +59,7 @@ Ocat/
 - `ocat.yaml` - Created comprehensive default configuration
 
 ## Next Priority Tasks
-1. **Task 1.1.2**: Add field validation and computed properties to config
-2. **Task 1.1.3**: Implement CLI argument overrides with proper precedence
-3. **Project 1.2**: Begin structured logging system implementation
+1. **Project 1.2**: Begin structured logging system implementation
 
 ## Key Requirements Met
 - ✅ YAML-only configuration (no backward compatibility)

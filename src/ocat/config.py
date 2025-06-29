@@ -141,7 +141,7 @@ class Config(BaseModel):
     ----------
     profile_name : Optional[str]
         Name of the profile for this configuration
-    model_config : ModelConfig
+    llm : ModelConfig
         LLM model configuration
     vector_store : VectorStoreConfig
         Vector store configuration
@@ -156,7 +156,7 @@ class Config(BaseModel):
     """
     
     profile_name: Optional[str] = Field(default=None, description="Profile name")
-    model_config: ModelConfig = Field(default_factory=ModelConfig)
+    llm: ModelConfig = Field(default_factory=ModelConfig)
     vector_store: VectorStoreConfig = Field(default_factory=VectorStoreConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     display: DisplayConfig = Field(default_factory=DisplayConfig)
@@ -165,14 +165,18 @@ class Config(BaseModel):
     
     
     @classmethod
-    def load(cls, config_path: Optional[str] = None) -> "Config":
+    def load(cls, config_path: Optional[str] = None, cli_overrides: Optional[Dict[str, Any]] = None) -> "Config":
         """
-        Load configuration from YAML file or environment variables.
+        Load configuration from YAML file, environment variables, and CLI overrides.
+        
+        Precedence order: CLI args > Environment variables > Config file > Defaults
         
         Parameters
         ----------
         config_path : Optional[str]
             Path to configuration file (optional)
+        cli_overrides : Optional[Dict[str, Any]]
+            CLI argument overrides (optional)
             
         Returns
         -------
@@ -205,8 +209,12 @@ class Config(BaseModel):
         # Create config instance with file data
         config = cls(**config_data)
         
-        # Override with environment variables
+        # Override with environment variables (precedence: env > file > defaults)
         config._load_from_env()
+        
+        # Override with CLI arguments (precedence: CLI > env > file > defaults)
+        if cli_overrides:
+            config._load_from_cli(cli_overrides)
         
         return config
     
@@ -244,11 +252,11 @@ class Config(BaseModel):
         """Load configuration from environment variables."""
         # Model configuration overrides
         if os.getenv("OCAT_MODEL"):
-            self.model_config.model = os.getenv("OCAT_MODEL")
+            self.llm.model = os.getenv("OCAT_MODEL")
         if os.getenv("OCAT_MAX_TOKENS"):
-            self.model_config.max_tokens = int(os.getenv("OCAT_MAX_TOKENS"))
+            self.llm.max_tokens = int(os.getenv("OCAT_MAX_TOKENS"))
         if os.getenv("OCAT_TEMPERATURE"):
-            self.model_config.temperature = float(os.getenv("OCAT_TEMPERATURE"))
+            self.llm.temperature = float(os.getenv("OCAT_TEMPERATURE"))
             
         # Vector store configuration overrides
         if os.getenv("OCAT_VECTOR_STORE_PATH"):
@@ -263,6 +271,47 @@ class Config(BaseModel):
         # Profile name override
         if os.getenv("OCAT_PROFILE_NAME"):
             self.profile_name = os.getenv("OCAT_PROFILE_NAME")
+    
+    def _load_from_cli(self, cli_overrides: Dict[str, Any]) -> None:
+        """
+        Apply CLI argument overrides to configuration.
+        
+        Parameters
+        ----------
+        cli_overrides : Dict[str, Any]
+            Dictionary of CLI argument overrides
+        """
+        # Model configuration overrides
+        if cli_overrides.get("model"):
+            self.llm.model = cli_overrides["model"]
+        if cli_overrides.get("temperature") is not None:
+            self.llm.temperature = cli_overrides["temperature"]
+        if cli_overrides.get("max_tokens") is not None:
+            self.llm.max_tokens = cli_overrides["max_tokens"]
+            
+        # Vector store configuration overrides
+        if cli_overrides.get("vector_store_path"):
+            self.vector_store.path = cli_overrides["vector_store_path"]
+        if cli_overrides.get("no_vector_store"):
+            self.vector_store.enabled = False
+        if cli_overrides.get("similarity_threshold") is not None:
+            self.vector_store.similarity_threshold = cli_overrides["similarity_threshold"]
+            
+        # Logging configuration overrides
+        if cli_overrides.get("log_level"):
+            self.logging.level = cli_overrides["log_level"]
+            
+        # Display configuration overrides
+        if cli_overrides.get("no_rich"):
+            self.display.no_rich = True
+        if cli_overrides.get("no_color"):
+            self.display.no_color = True
+        if cli_overrides.get("line_width") is not None:
+            self.display.line_width = cli_overrides["line_width"]
+            
+        # Profile name override
+        if cli_overrides.get("profile"):
+            self.profile_name = cli_overrides["profile"]
     
     def save(self, file_path: str) -> None:
         """

@@ -4,6 +4,12 @@ Based on this project file and the current state of the project based on LLM/pro
 - You will read this before starting ANY task to remind yourself of the core goals and principles of the project.
 - You will read this regularly while in tasks to remind yourself of the core goals and principles of the project.
 
+## Before you start ANY task or action
+- Activate the ocat conda environment
+- Read the contents of every file in Project/ carefully
+- Use the appropriate git commands to check for recent commits and overall activity
+- Create a new branch for your task, and commit your changes regularly
+
 ##  Housekeeping
 - You will log your progress in the LLM/project_state.md file. This will be used to track the state of the project and to provide context for future development.
 - Tasks should be broken down into small, manageable steps that can be completed in a single session.
@@ -258,6 +264,7 @@ Ocat should be able to support any LLM that is compatible with the LangGraph fra
 ## Preferred python libraries
 The following libraries are preferred for this project, if and only if they have functionality required by the project. You may use other libraries if they are required to complete a task, but you should always prefer these libraries where possible.
 
+- poetry # for package management
 - pydantic
 - FastAPI
 - Rich # for CLI and output

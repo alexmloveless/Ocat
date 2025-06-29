@@ -42,12 +42,14 @@ def create_parser() -> argparse.ArgumentParser:
         version=f"ocat {__version__}"
     )
     
+    # Configuration file
     parser.add_argument(
         "--config",
         type=str,
         help="Path to configuration file"
     )
     
+    # Model configuration overrides
     parser.add_argument(
         "--model",
         type=str,
@@ -55,9 +57,103 @@ def create_parser() -> argparse.ArgumentParser:
     )
     
     parser.add_argument(
+        "--temperature",
+        type=float,
+        help="Temperature setting for model responses (0.0-1.0)"
+    )
+    
+    parser.add_argument(
+        "--max-tokens",
+        type=int,
+        help="Maximum tokens for responses"
+    )
+    
+    # Vector store configuration overrides
+    parser.add_argument(
+        "--vector-store-path",
+        type=str,
+        help="Path to vector store directory"
+    )
+    
+    parser.add_argument(
+        "--no-vector-store",
+        action="store_true",
+        help="Disable vector store functionality"
+    )
+    
+    parser.add_argument(
+        "--similarity-threshold",
+        type=float,
+        help="Vector similarity threshold (0.0-1.0)"
+    )
+    
+    # Logging configuration overrides
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        choices=["DEBUG", "INFO", "WARN", "ERROR"],
+        help="Set logging level"
+    )
+    
+    # Display configuration overrides
+    parser.add_argument(
+        "--no-rich",
+        action="store_true",
+        help="Disable rich text formatting"
+    )
+    
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Disable ANSI color output"
+    )
+    
+    parser.add_argument(
+        "--line-width",
+        type=int,
+        help="CLI line width in characters"
+    )
+    
+    # Profile name override
+    parser.add_argument(
+        "--profile",
+        type=str,
+        help="Configuration profile name"
+    )
+    
+    # Special modes
+    parser.add_argument(
+        "--dummy-mode",
+        action="store_true",
+        help="Use dummy responses for testing (no real LLM calls)"
+    )
+    
+    parser.add_argument(
         "--debug",
         action="store_true",
-        help="Enable debug mode"
+        help="Enable debug mode with detailed error traces"
+    )
+    
+    # Headless mode options for vector store operations
+    headless_group = parser.add_argument_group('headless mode', 
+        'Non-interactive operations for automation')
+    
+    headless_group.add_argument(
+        "--add-to-vector-store",
+        type=str,
+        help="Add text document to vector store and exit"
+    )
+    
+    headless_group.add_argument(
+        "--query-vector-store",
+        type=str,
+        help="Query vector store and exit"
+    )
+    
+    headless_group.add_argument(
+        "--vector-store-stats",
+        action="store_true",
+        help="Display vector store statistics and exit"
     )
     
     return parser
@@ -106,12 +202,51 @@ def main(args: Optional[List[str]] = None) -> int:
     console = Console()
     
     try:
-        # Load configuration
-        config = Config.load(parsed_args.config)
+        # Extract CLI overrides from parsed arguments
+        cli_overrides = {}
         
-        # Override config with command line arguments
+        # Model configuration overrides
         if parsed_args.model:
-            config.model_config.model = parsed_args.model
+            cli_overrides["model"] = parsed_args.model
+        if parsed_args.temperature is not None:
+            cli_overrides["temperature"] = parsed_args.temperature
+        if getattr(parsed_args, 'max_tokens', None) is not None:
+            cli_overrides["max_tokens"] = parsed_args.max_tokens
+            
+        # Vector store configuration overrides
+        if getattr(parsed_args, 'vector_store_path', None):
+            cli_overrides["vector_store_path"] = parsed_args.vector_store_path
+        if getattr(parsed_args, 'no_vector_store', False):
+            cli_overrides["no_vector_store"] = True
+        if getattr(parsed_args, 'similarity_threshold', None) is not None:
+            cli_overrides["similarity_threshold"] = parsed_args.similarity_threshold
+            
+        # Logging configuration overrides
+        if getattr(parsed_args, 'log_level', None):
+            cli_overrides["log_level"] = parsed_args.log_level
+            
+        # Display configuration overrides
+        if getattr(parsed_args, 'no_rich', False):
+            cli_overrides["no_rich"] = True
+        if getattr(parsed_args, 'no_color', False):
+            cli_overrides["no_color"] = True
+        if getattr(parsed_args, 'line_width', None) is not None:
+            cli_overrides["line_width"] = parsed_args.line_width
+            
+        # Profile name override
+        if getattr(parsed_args, 'profile', None):
+            cli_overrides["profile"] = parsed_args.profile
+        
+        # Load configuration with CLI overrides
+        config = Config.load(parsed_args.config, cli_overrides if cli_overrides else None)
+        
+        # Handle headless mode operations
+        if hasattr(parsed_args, 'add_to_vector_store') and parsed_args.add_to_vector_store:
+            return handle_headless_add_to_vector_store(parsed_args.add_to_vector_store, config, console)
+        elif hasattr(parsed_args, 'query_vector_store') and parsed_args.query_vector_store:
+            return handle_headless_query_vector_store(parsed_args.query_vector_store, config, console)
+        elif hasattr(parsed_args, 'vector_store_stats') and parsed_args.vector_store_stats:
+            return handle_headless_vector_store_stats(config, console)
         
         # Display welcome message
         display_welcome(console)
@@ -165,6 +300,88 @@ def main(args: Optional[List[str]] = None) -> int:
             import traceback
             console.print("\\nDebug traceback:", style="yellow")
             console.print(traceback.format_exc())
+        return 1
+
+
+def handle_headless_add_to_vector_store(file_path: str, config: Config, console: Console) -> int:
+    """
+    Handle headless mode operation: add document to vector store.
+    
+    Parameters
+    ----------
+    file_path : str
+        Path to the text document to add
+    config : Config
+        Configuration instance
+    console : Console
+        Rich console for output
+        
+    Returns
+    -------
+    int
+        Exit code (0 for success, 1 for error)
+    """
+    try:
+        console.print(f"[yellow]Adding document to vector store: {file_path}[/yellow]")
+        # TODO: Implement vector store addition when vector store module is ready
+        console.print("[red]Vector store not yet implemented[/red]")
+        return 1
+    except Exception as e:
+        console.print(f"[red]Error adding document: {e}[/red]")
+        return 1
+
+
+def handle_headless_query_vector_store(query: str, config: Config, console: Console) -> int:
+    """
+    Handle headless mode operation: query vector store.
+    
+    Parameters
+    ----------
+    query : str
+        Query string to search for
+    config : Config
+        Configuration instance
+    console : Console
+        Rich console for output
+        
+    Returns
+    -------
+    int
+        Exit code (0 for success, 1 for error)
+    """
+    try:
+        console.print(f"[yellow]Querying vector store: {query}[/yellow]")
+        # TODO: Implement vector store querying when vector store module is ready
+        console.print("[red]Vector store not yet implemented[/red]")
+        return 1
+    except Exception as e:
+        console.print(f"[red]Error querying vector store: {e}[/red]")
+        return 1
+
+
+def handle_headless_vector_store_stats(config: Config, console: Console) -> int:
+    """
+    Handle headless mode operation: display vector store statistics.
+    
+    Parameters
+    ----------
+    config : Config
+        Configuration instance
+    console : Console
+        Rich console for output
+        
+    Returns
+    -------
+    int
+        Exit code (0 for success, 1 for error)
+    """
+    try:
+        console.print("[yellow]Vector store statistics:[/yellow]")
+        # TODO: Implement vector store stats when vector store module is ready
+        console.print("[red]Vector store not yet implemented[/red]")
+        return 1
+    except Exception as e:
+        console.print(f"[red]Error getting vector store stats: {e}[/red]")
         return 1
 
 
