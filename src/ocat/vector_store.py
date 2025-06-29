@@ -492,9 +492,17 @@ class ConversationVectorStore:
             with open(self.metadata_file, "w") as f:
                 json.dump(metadata_dict, f, indent=2)
 
-            # Build and save Annoy index if we have data
+            # Save Annoy index if we have data
             if len(self.metadata) > 0:
-                self.index.build(10)  # 10 trees for good accuracy/speed tradeoff
+                # Try to build the index, but catch exception if already built
+                try:
+                    self.index.build(10)  # 10 trees for good accuracy/speed tradeoff
+                except RuntimeError as e:
+                    if "build a built index" in str(e):
+                        # Index is already built, that's fine
+                        pass
+                    else:
+                        raise e
                 self.index.save(str(self.index_file))
 
         except Exception as e:
