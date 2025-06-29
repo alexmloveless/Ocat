@@ -139,8 +139,26 @@ Ocat/
 - ✅ **Configuration Mismatch**: Aligned ocat.yaml structure with Pydantic models
 - ✅ **Test Coverage**: All tests now passing (11/11)
 
+## Recently Completed
+- ✅ **Task 3.1.1**: Create command parsing framework (COMPLETED)
+  - ✅ Implemented slash command parser with shell-like argument parsing
+  - ✅ Added command registry and decorator pattern for registration
+  - ✅ Created base command class with error handling
+- ✅ **Task 3.1.2**: Implement core slash commands (COMPLETED)
+  - ✅ Implemented /help, /exit, /clear commands
+  - ✅ Added /config command with formatted configuration display
+  - ✅ Integrated command system into ChatSession with proper error handling
+- ✅ **Task 3.1.3**: Implement history management commands (COMPLETED)
+  - ✅ Added /history command with optional message count parameter
+  - ✅ Implemented /delete command for removing recent exchanges
+  - ✅ Added /showsys command to display current system prompt
+- ✅ **Task 3.1.4**: Implement runtime commands (COMPLETED)
+  - ✅ Added /model command for runtime model switching
+  - ✅ Implemented /loglevel command for dynamic log level changes
+  - ✅ All commands follow consistent error handling patterns
+
 ## Next Priority Tasks
-1. **Phase 3.1**: Slash commands system implementation (Project 3.1)
+1. **Phase 3.1**: Complete remaining slash commands (vector store and file operations)
 2. **Phase 3.2**: Enhanced UI/UX (Project 3.2)
 
 ## Key Requirements Met
