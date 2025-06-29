@@ -186,15 +186,16 @@ class ConversationVectorStore:
                     "checkpoint_id": exchange.exchange_id,
                 }
                 # Create checkpoint with required metadata and new_versions
-                checkpoint = Checkpoint(
-                    v=1,
-                    ts=str(exchange.timestamp),
-                    id=exchange.exchange_id,
-                    channel_values=checkpoint_data,
-                    channel_versions={},
-                    versions_seen={},
-                    pending_sends=[],
-                )
+                checkpoint = Checkpoint({
+                    "v": 1,
+                    "ts": str(exchange.timestamp),
+                    "id": exchange.exchange_id,
+                    "channel_values": checkpoint_data,
+                    "channel_versions": {},
+                    "versions_seen": {},
+                    "pending_sends": [],
+                    "checkpoint_ns": "",
+                })
                 metadata = {
                     "source": "vector_store",
                     "thread_id": exchange.thread_id,
@@ -382,15 +383,16 @@ class ConversationVectorStore:
                     "checkpoint_id": exchange.exchange_id,
                 }
                 # Create checkpoint with required metadata and new_versions
-                checkpoint = Checkpoint(
-                    v=1,
-                    ts=str(exchange.timestamp),
-                    id=exchange.exchange_id,
-                    channel_values=checkpoint_data,
-                    channel_versions={},
-                    versions_seen={},
-                    pending_sends=[],
-                )
+                checkpoint = Checkpoint({
+                    "v": 1,
+                    "ts": str(exchange.timestamp),
+                    "id": exchange.exchange_id,
+                    "channel_values": checkpoint_data,
+                    "channel_versions": {},
+                    "versions_seen": {},
+                    "pending_sends": [],
+                    "checkpoint_ns": "",
+                })
                 metadata = {
                     "source": "vector_store",
                     "thread_id": exchange.thread_id,
