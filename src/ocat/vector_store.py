@@ -494,15 +494,28 @@ class ConversationVectorStore:
 
             # Save Annoy index if we have data
             if len(self.metadata) > 0:
-                # Try to build the index, but catch exception if already built
+                # Check if index needs to be built
+                index_needs_building = True
                 try:
-                    self.index.build(10)  # 10 trees for good accuracy/speed tradeoff
-                except RuntimeError as e:
-                    if "build a built index" in str(e):
-                        # Index is already built, that's fine
-                        pass
-                    else:
-                        raise e
+                    # Try to get number of items to see if index is built
+                    self.index.get_n_items()
+                    index_needs_building = False
+                except:
+                    # Index is not built yet
+                    index_needs_building = True
+                
+                # Build index if needed
+                if index_needs_building:
+                    try:
+                        self.index.build(10)  # 10 trees for good accuracy/speed tradeoff
+                    except RuntimeError as e:
+                        if "build a built index" in str(e):
+                            # Index is already built, that's fine
+                            pass
+                        else:
+                            raise e
+                
+                # Save the index
                 self.index.save(str(self.index_file))
 
         except Exception as e:
