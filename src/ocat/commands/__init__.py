@@ -210,3 +210,6 @@ class CommandError(OcatError):
 from . import help_command
 from . import core_commands
 from . import history_commands
+from . import file_commands
+from . import vector_commands
+from . import context_commands
