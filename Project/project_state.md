@@ -80,8 +80,16 @@ Ocat/
 - `tests/test_config.py` - Updated to use ConfigError instead of ValueError
 - `tests/test_cli.py` - Fixed mock configuration for logging support
 
+## Recently Completed
+- ✅ **Task 1.3.1**: Install and configure dependencies (COMPLETED)
+  - ✅ Added LangChain provider packages (langchain-openai, langchain-anthropic, langchain-google-genai)
+  - ✅ Updated Python version requirement from ^3.9 to ^3.12
+  - ✅ Updated pyproject.toml classifiers for Python 3.12+ compatibility
+  - ✅ Regenerated poetry.lock and verified all dependencies install correctly
+  - ✅ All tests passing with new dependencies
+
 ## Next Priority Tasks
-1. **Project 1.3**: Begin LLM backend integration (Task 1.3.1)
+1. **Project 1.3**: Continue LLM backend integration (Task 1.3.2)
 
 ## Key Requirements Met
 - ✅ YAML-only configuration (no backward compatibility)
