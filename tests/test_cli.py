@@ -50,6 +50,14 @@ def test_main_basic_flow(
     """Test the basic flow of the main function."""
     # Setup mocks
     mock_config = Mock(spec=Config)
+    # Add logging configuration to mock
+    mock_logging = Mock()
+    mock_logging.level = "WARN"
+    mock_logging.format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    mock_logging.show_context = False
+    mock_config.logging = mock_logging
+    mock_config.llm = Mock()
+    mock_config.llm.model = "gpt-4o-mini"
     mock_config_load.return_value = mock_config
 
     mock_prompt = Mock()

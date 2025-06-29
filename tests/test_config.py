@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ocat.config import Config
+from ocat.exceptions import ConfigError
 
 
 def test_config_defaults():
@@ -161,7 +162,7 @@ def test_config_invalid_yaml():
         temp_path = f.name
 
     try:
-        with pytest.raises(ValueError, match="Invalid YAML"):
+        with pytest.raises(ConfigError, match="Invalid YAML"):
             Config.load(temp_path)
 
     finally:

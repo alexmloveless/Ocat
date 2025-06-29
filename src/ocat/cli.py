@@ -8,6 +8,9 @@ handling user input, command parsing, and interaction coordination.
 import sys
 import argparse
 from typing import Optional, List
+import logging
+
+from .utils.logging import setup_logger, LogLevel
 
 from rich.console import Console
 from rich.panel import Panel
@@ -211,6 +214,10 @@ def main(args: Optional[List[str]] = None) -> int:
             parsed_args.config, cli_overrides if cli_overrides else None
         )
 
+        # Set up logging after config is loaded
+        logger = setup_logger("ocat.cli", LogLevel[config.logging.level], config)
+        logger.info(f"Starting Ocat CLI with model: {config.llm.model}")
+
         # Handle headless mode operations
         if (
             hasattr(parsed_args, "add_to_vector_store")
@@ -239,7 +246,7 @@ def main(args: Optional[List[str]] = None) -> int:
         chat_session = ChatSession(config, console)
 
         # Create prompt session with history and auto-suggest
-        prompt_session = PromptSession(
+        prompt_session: PromptSession = PromptSession(
             history=InMemoryHistory(), auto_suggest=AutoSuggestFromHistory()
         )
 
@@ -278,6 +285,11 @@ def main(args: Optional[List[str]] = None) -> int:
         return 0
 
     except Exception as e:
+        # Create a basic logger for error reporting if config loading failed
+        error_logger = logging.getLogger("ocat.cli.error")
+        error_logger.setLevel(logging.ERROR)
+        error_logger.addHandler(logging.StreamHandler())
+        error_logger.error(f"Error: {e}")
         console.print(f"Error: {e}", style="bold red")
         if parsed_args.debug:
             import traceback

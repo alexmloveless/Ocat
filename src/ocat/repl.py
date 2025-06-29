@@ -27,10 +27,12 @@ def start_repl(console: Optional[Console] = None) -> None:
     if console is None:
         console = Console()
 
-    session = PromptSession(
-        history=InMemoryHistory(), auto_suggest=AutoSuggestFromHistory()
+    session: PromptSession = PromptSession(
+        history=InMemoryHistory(),
+        auto_suggest=AutoSuggestFromHistory(),
+        multiline=True,
     )
-
+    
     console.print(
         "Entering REPL. Type your message or 'exit' to quit.", style="italic blue"
     )

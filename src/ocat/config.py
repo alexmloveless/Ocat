@@ -18,6 +18,8 @@ from pydantic import (
     ValidationError,
 )
 
+from .exceptions import ConfigError
+
 
 class ModelConfig(BaseModel):
     """
@@ -242,7 +244,10 @@ class Config(BaseModel):
                     break
 
         # Create config instance with file data
-        config = cls(**config_data)
+        try:
+            config = cls(**config_data)
+        except ValidationError as e:
+            raise ConfigError(f"Configuration validation failed: {e}")
 
         # Override with environment variables (precedence: env > file > defaults)
         config._load_from_env()
@@ -281,7 +286,7 @@ class Config(BaseModel):
         except FileNotFoundError:
             return {}  # File doesn't exist, use defaults
         except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML configuration file {file_path}: {e}")
+            raise ConfigError(f"Invalid YAML configuration file {file_path}: {e}")
 
     def _load_from_env(self) -> None:
         """Load configuration from environment variables."""

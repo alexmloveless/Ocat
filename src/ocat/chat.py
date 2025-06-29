@@ -5,8 +5,12 @@ Handles the core chat functionality, including message processing,
 LLM interactions, and conversation management.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from dataclasses import dataclass
+import logging
+
+from .utils.logging import setup_logger, LogLevel
+from .exceptions import PromptError, LLMError
 import time
 
 from rich.console import Console
@@ -35,7 +39,7 @@ class Message:
 
     role: str
     content: str
-    timestamp: float = None
+    timestamp: Optional[float] = None
 
     def __post_init__(self):
         """Set timestamp if not provided."""
@@ -66,12 +70,19 @@ class ChatSession:
         self.console = console
         self.messages: List[Message] = []
 
+        # Set up logging for chat session
+        self.logger = setup_logger("ocat.chat", LogLevel[config.logging.level], config)
+        self.logger.debug("Chat session initialized")
+
         # Add system message if configured (from system prompt files)
         if config.llm.system_prompt_files:
             # Load and concatenate system prompt files
             system_content = self._load_system_prompts(config.llm.system_prompt_files)
             if system_content:
                 self.messages.append(Message(role="system", content=system_content))
+                self.logger.info(
+                    f"Loaded system prompt from {len(config.llm.system_prompt_files)} file(s)"
+                )
 
     def process_message(self, user_input: str) -> None:
         """
@@ -85,23 +96,30 @@ class ChatSession:
         # Add user message to conversation
         user_message = Message(role="user", content=user_input)
         self.messages.append(user_message)
+        self.logger.debug(f"User message added to conversation history")
 
         # Display user message
         self._display_message(user_message)
 
         try:
             # Generate response from LLM
+            self.logger.debug("Generating assistant response")
             response = self._generate_response()
 
             # Add assistant message to conversation
             assistant_message = Message(role="assistant", content=response)
             self.messages.append(assistant_message)
+            self.logger.debug("Assistant response generated and added to history")
 
             # Display assistant message
             self._display_message(assistant_message)
 
+        except LLMError as e:
+            self.logger.error(f"LLM error: {e}")
+            self.console.print(f"LLM error: {e}", style="red")
         except Exception as e:
-            self.console.print(f"Error generating response: {e}", style="red")
+            self.logger.error(f"Unexpected error generating response: {e}")
+            self.console.print(f"Unexpected error: {e}", style="red")
 
     def _generate_response(self) -> str:
         """
@@ -149,7 +167,7 @@ class ChatSession:
             # Display assistant message in a panel with markdown formatting
             try:
                 # Try to render as markdown for better formatting
-                content = Markdown(message.content)
+                content: Union[Markdown, str] = Markdown(message.content)
             except:
                 # Fallback to plain text if markdown parsing fails
                 content = message.content
@@ -185,7 +203,7 @@ class ChatSession:
             "💡 Tips:",
             "• Type your message and press Enter to chat",
             "• Use arrow keys to navigate command history",
-            "• Configure your LLM settings in ~/.ocat/config.json",
+            "• Configure your LLM settings in ocat.yaml",
             "• Set environment variables like OCAT_API_KEY for authentication",
         ]
 
@@ -206,5 +224,38 @@ class ChatSession:
 
     def clear_history(self) -> None:
         """Clear the conversation history, keeping only the system message."""
+        message_count = len(self.messages)
         system_messages = [msg for msg in self.messages if msg.role == "system"]
         self.messages = system_messages
+        self.logger.info(
+            f"Cleared conversation history ({message_count - len(system_messages)} messages removed)"
+        )
+
+    def _load_system_prompts(self, prompt_files: List[str]) -> str:
+        """
+        Load and concatenate system prompt files.
+
+        Parameters
+        ----------
+        prompt_files : List[str]
+            List of file paths to load system prompts from
+
+        Returns
+        -------
+        str
+            Concatenated system prompt content
+        """
+        system_prompts = []
+        for file_path in prompt_files:
+            try:
+                with open(file_path, "r") as f:
+                    system_prompts.append(f.read())
+                self.logger.debug(f"Loaded system prompt from: {file_path}")
+            except FileNotFoundError:
+                self.logger.warning(f"System prompt file not found: {file_path}")
+                continue
+            except Exception as e:
+                self.logger.error(f"Error loading system prompt from {file_path}: {e}")
+                raise PromptError(f"Failed to load system prompt from {file_path}: {e}")
+
+        return "\n\n".join(system_prompts)
