@@ -1,9 +1,11 @@
 """
 Logging utilities and setup for Ocat.
 """
+
 import logging
 from typing import Optional
 from enum import Enum
+
 
 class LogLevel(Enum):
     DEBUG = "DEBUG"
@@ -11,7 +13,13 @@ class LogLevel(Enum):
     WARN = "WARN"
     ERROR = "ERROR"
 
-def setup_logger(name: str, level: LogLevel = LogLevel.WARN, fmt: Optional[str] = None, show_context: bool = False) -> logging.Logger:
+
+def setup_logger(
+    name: str,
+    level: LogLevel = LogLevel.WARN,
+    fmt: Optional[str] = None,
+    show_context: bool = False,
+) -> logging.Logger:
     """
     Sets up and returns a logger with the given name and level.
 
@@ -44,4 +52,3 @@ def setup_logger(name: str, level: LogLevel = LogLevel.WARN, fmt: Optional[str] 
     logger.setLevel(level.value)
     logger.propagate = False
     return logger
-

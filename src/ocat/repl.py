@@ -14,10 +14,11 @@ from rich.console import Console
 
 __all__ = ["start_repl"]
 
+
 def start_repl(console: Optional[Console] = None) -> None:
     """
     Start the REPL session using prompt_toolkit.
-    
+
     Parameters
     ----------
     console : Optional[Console]
@@ -27,12 +28,13 @@ def start_repl(console: Optional[Console] = None) -> None:
         console = Console()
 
     session = PromptSession(
-        history=InMemoryHistory(),
-        auto_suggest=AutoSuggestFromHistory()
+        history=InMemoryHistory(), auto_suggest=AutoSuggestFromHistory()
     )
 
-    console.print("Entering REPL. Type your message or 'exit' to quit.", style="italic blue")
-    
+    console.print(
+        "Entering REPL. Type your message or 'exit' to quit.", style="italic blue"
+    )
+
     while True:
         try:
             user_input = session.prompt("🐱 [1mREPL> [0m")
@@ -43,4 +45,3 @@ def start_repl(console: Optional[Console] = None) -> None:
         except (KeyboardInterrupt, EOFError):
             console.print("Exiting REPL. Goodbye! 👋", style="green")
             break
-

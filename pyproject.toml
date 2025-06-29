@@ -34,9 +34,10 @@ aiohttp = "^3.12.13"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
-black = "^21.5b1"
-mypy = "^0.910"
+black = "^24.0.0"
+mypy = "^1.0.0"
 ruff = "*"
+types-pyyaml = "^6.0.0"
 
 [tool.poetry.scripts]
 ocat = "ocat.cli:main"
