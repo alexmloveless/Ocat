@@ -182,7 +182,10 @@ class ConversationVectorStore:
 
             try:
                 config = {
-                    "configurable": {"thread_id": exchange.thread_id},
+                    "configurable": {
+                        "thread_id": exchange.thread_id,
+                        "checkpoint_ns": "",
+                    },
                     "checkpoint_id": exchange.exchange_id,
                 }
                 # Create checkpoint with required metadata and new_versions
@@ -194,7 +197,6 @@ class ConversationVectorStore:
                     "channel_versions": {},
                     "versions_seen": {},
                     "pending_sends": [],
-                    "checkpoint_ns": "",
                 })
                 metadata = {
                     "source": "vector_store",
@@ -379,7 +381,10 @@ class ConversationVectorStore:
                 }
 
                 config = {
-                    "configurable": {"thread_id": exchange.thread_id},
+                    "configurable": {
+                        "thread_id": exchange.thread_id,
+                        "checkpoint_ns": "",
+                    },
                     "checkpoint_id": exchange.exchange_id,
                 }
                 # Create checkpoint with required metadata and new_versions
@@ -391,7 +396,6 @@ class ConversationVectorStore:
                     "channel_versions": {},
                     "versions_seen": {},
                     "pending_sends": [],
-                    "checkpoint_ns": "",
                 })
                 metadata = {
                     "source": "vector_store",
