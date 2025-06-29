@@ -17,10 +17,8 @@ from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
 from annoy import AnnoyIndex
 from openai import OpenAI
-from langgraph.checkpoint.memory import (
-    MemorySaver,
-    Checkpoint,
-)  # Using LangGraph checkpoint components
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.base import Checkpoint  # Using LangGraph checkpoint components
 
 from .config import Config
 from .exceptions import VectorStoreError
@@ -183,12 +181,30 @@ class ConversationVectorStore:
             }
 
             try:
+                config = {
+                    "configurable": {"thread_id": exchange.thread_id},
+                    "checkpoint_id": exchange.exchange_id,
+                }
+                # Create checkpoint with required metadata and new_versions
+                checkpoint = Checkpoint(
+                    v=1,
+                    ts=str(exchange.timestamp),
+                    id=exchange.exchange_id,
+                    channel_values=checkpoint_data,
+                    channel_versions={},
+                    versions_seen={},
+                    pending_sends=[],
+                )
+                metadata = {
+                    "source": "vector_store",
+                    "thread_id": exchange.thread_id,
+                    "session_id": exchange.session_id,
+                }
                 self.memory_saver.put(
-                    {
-                        "configurable": {"thread_id": exchange.thread_id},
-                        "checkpoint_id": exchange.exchange_id,
-                    },
-                    checkpoint_data,
+                    config,
+                    checkpoint,
+                    metadata,
+                    {},  # new_versions
                 )
                 self.logger.debug(
                     f"Added exchange {exchange_id} to LangGraph checkpoint"
@@ -361,12 +377,30 @@ class ConversationVectorStore:
                     "session_id": exchange.session_id,
                 }
 
+                config = {
+                    "configurable": {"thread_id": exchange.thread_id},
+                    "checkpoint_id": exchange.exchange_id,
+                }
+                # Create checkpoint with required metadata and new_versions
+                checkpoint = Checkpoint(
+                    v=1,
+                    ts=str(exchange.timestamp),
+                    id=exchange.exchange_id,
+                    channel_values=checkpoint_data,
+                    channel_versions={},
+                    versions_seen={},
+                    pending_sends=[],
+                )
+                metadata = {
+                    "source": "vector_store",
+                    "thread_id": exchange.thread_id,
+                    "session_id": exchange.session_id,
+                }
                 self.memory_saver.put(
-                    {
-                        "configurable": {"thread_id": exchange.thread_id},
-                        "checkpoint_id": exchange.exchange_id,
-                    },
-                    checkpoint_data,
+                    config,
+                    checkpoint,
+                    metadata,
+                    {},  # new_versions
                 )
 
             self.logger.debug(
