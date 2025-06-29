@@ -167,8 +167,13 @@ class ConversationVectorStore:
             combined_text = f"User: {user_prompt}\nAssistant: {assistant_response}"
             embedding = self._generate_embedding(combined_text)
 
-            # Add to Annoy index
-            self.index.add_item(self.next_index, embedding)
+            # Store metadata first
+            self.metadata[exchange_id] = exchange
+            self.id_to_index[exchange_id] = self.next_index
+            self.next_index += 1
+
+            # Rebuild Annoy index with all exchanges (including new one)
+            self._rebuild_index()
 
             # Store in LangGraph checkpoint for memory
             checkpoint_data = {
@@ -214,11 +219,6 @@ class ConversationVectorStore:
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to store in LangGraph checkpoint: {e}")
-            self.id_to_index[exchange_id] = self.next_index
-            self.next_index += 1
-
-            # Store metadata
-            self.metadata[exchange_id] = exchange
 
             self.logger.debug(f"Added exchange {exchange_id} to vector store")
 
@@ -500,6 +500,35 @@ class ConversationVectorStore:
         except Exception as e:
             self.logger.error(f"Failed to save vector store data: {e}")
             raise VectorStoreError(f"Failed to save vector store data: {e}")
+
+    def _rebuild_index(self) -> None:
+        """
+        Rebuild the Annoy index from scratch with all current exchanges.
+        
+        This is necessary because Annoy doesn't allow adding items to a loaded index.
+        """
+        try:
+            # Create a new index
+            self.index = AnnoyIndex(self.dimension, "angular")
+            
+            # Add all exchanges to the new index
+            for exchange_id, exchange in self.metadata.items():
+                combined_text = f"User: {exchange.user_prompt}\nAssistant: {exchange.assistant_response}"
+                embedding = self._generate_embedding(combined_text)
+                
+                # Get the index for this exchange
+                annoy_index = self.id_to_index[exchange_id]
+                self.index.add_item(annoy_index, embedding)
+            
+            # Build the index if we have items
+            if len(self.metadata) > 0:
+                self.index.build(10)  # 10 trees for good accuracy/speed tradeoff
+                
+            self.logger.debug(f"Rebuilt Annoy index with {len(self.metadata)} exchanges")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to rebuild index: {e}")
+            raise VectorStoreError(f"Failed to rebuild index: {e}")
 
     def get_episodic_context(
         self,
