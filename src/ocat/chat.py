@@ -15,6 +15,7 @@ from .utils.logging import setup_logger, LogLevel
 from .exceptions import PromptError, LLMError, VectorStoreError
 from .backends import LLMBackend, create_backend, MockLLMBackend
 from .vector_store import ConversationVectorStore, Exchange
+from .commands.parser import CommandParser
 import time
 
 from rich.console import Console
@@ -113,6 +114,10 @@ class ChatSession:
             self.logger.error(f"Failed to initialize LLM backend: {e}")
             raise
 
+        # Initialize command parser for slash commands
+        self.command_parser = CommandParser(config)
+        self.logger.debug("Command parser initialized")
+
         # Add system message if configured (from system prompt files)
         if config.llm.system_prompt_files:
             # Load and concatenate system prompt files
@@ -132,6 +137,26 @@ class ChatSession:
         user_input : str
             The user's input message
         """
+        # Check if this is a slash command
+        if self.command_parser.is_command(user_input):
+            try:
+                self.logger.debug(f"Processing slash command: {user_input}")
+                result = await self.command_parser.execute_command(user_input, self)
+
+                if not result.success:
+                    self.console.print(
+                        f"❌ Command error: {result.message}", style="red"
+                    )
+                elif result.message:
+                    self.console.print(f"✅ {result.message}", style="green")
+
+                return
+            except Exception as e:
+                self.logger.error(f"Unexpected error processing command: {e}")
+                self.console.print(f"❌ Command error: {e}", style="red")
+                return
+
+        # Regular message processing
         # Add user message to conversation
         user_message = Message(role="user", content=user_input)
         self.messages.append(user_message)
@@ -333,8 +358,10 @@ class ChatSession:
             try:
                 similar_exchanges = self.vector_store.get_episodic_context(
                     query_text=query_text,
-                    max_context_length=min(2000, self.config.llm.max_tokens // 4),  # Estimate max length conservatively
-                    relevance_threshold=self.config.vector_store.similarity_threshold
+                    max_context_length=min(
+                        2000, self.config.llm.max_tokens // 4
+                    ),  # Estimate max length conservatively
+                    relevance_threshold=self.config.vector_store.similarity_threshold,
                 )
                 self.logger.debug(
                     f"Retrieved {len(similar_exchanges)} similar exchanges"
@@ -433,3 +460,25 @@ class ChatSession:
             return final_messages
 
         return api_messages
+
+    def show_welcome(self) -> None:
+        """
+        Display the welcome message with current configuration.
+        """
+        profile_name = getattr(self.config, "profile_name", "Default")
+        model_name = self.config.llm.model
+
+        welcome_panel = Panel(
+            f"Welcome to Ocat - Otherworldly Chats at (the) Terminal\n\n"
+            f"Type your messages to chat with the LLM.\n"
+            f"Type /help to see available commands.\n"
+            f"Type /exit to quit the application.\n\n"
+            f"Model: {model_name}\n"
+            f"Profile: {profile_name}",
+            title="🐱 Ocat",
+            border_style="cyan",
+            padding=(1, 2),
+        )
+
+        self.console.print(welcome_panel)
+        self.console.print()

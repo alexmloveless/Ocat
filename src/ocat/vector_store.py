@@ -17,7 +17,10 @@ from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
 from annoy import AnnoyIndex
 from openai import OpenAI
-from langgraph.checkpoint.memory import MemorySaver, Checkpoint  # Using LangGraph checkpoint components
+from langgraph.checkpoint.memory import (
+    MemorySaver,
+    Checkpoint,
+)  # Using LangGraph checkpoint components
 
 from .config import Config
 from .exceptions import VectorStoreError
@@ -60,6 +63,7 @@ class ConversationVectorStore:
     """
     Enhanced with LangGraph checkpoint capabilities for memory storage.
     """
+
     """
     Vector store for conversation memory and context retrieval.
 
@@ -102,10 +106,10 @@ class ConversationVectorStore:
 
         # Initialize memory saver using LangGraph
         self.memory_saver = MemorySaver()
-        
+
         # Load existing Annoy and metadata data
         self._load_existing_data()
-        
+
         # Initialize LangGraph checkpoint memory with existing exchanges
         self._initialize_checkpoint_memory()
 
@@ -167,7 +171,7 @@ class ConversationVectorStore:
 
             # Add to Annoy index
             self.index.add_item(self.next_index, embedding)
-            
+
             # Store in LangGraph checkpoint for memory
             checkpoint_data = {
                 "exchange_id": exchange.exchange_id,
@@ -175,15 +179,20 @@ class ConversationVectorStore:
                 "assistant_response": exchange.assistant_response,
                 "timestamp": exchange.timestamp,
                 "thread_id": exchange.thread_id,
-                "session_id": exchange.session_id
+                "session_id": exchange.session_id,
             }
-            
+
             try:
-                self.memory_saver.put({
-                    "configurable": {"thread_id": exchange.thread_id},
-                    "checkpoint_id": exchange.exchange_id
-                }, checkpoint_data)
-                self.logger.debug(f"Added exchange {exchange_id} to LangGraph checkpoint")
+                self.memory_saver.put(
+                    {
+                        "configurable": {"thread_id": exchange.thread_id},
+                        "checkpoint_id": exchange.exchange_id,
+                    },
+                    checkpoint_data,
+                )
+                self.logger.debug(
+                    f"Added exchange {exchange_id} to LangGraph checkpoint"
+                )
             except Exception as e:
                 self.logger.warning(f"Failed to store in LangGraph checkpoint: {e}")
             self.id_to_index[exchange_id] = self.next_index
@@ -349,15 +358,20 @@ class ConversationVectorStore:
                     "assistant_response": exchange.assistant_response,
                     "timestamp": exchange.timestamp,
                     "thread_id": exchange.thread_id,
-                    "session_id": exchange.session_id
+                    "session_id": exchange.session_id,
                 }
-                
-                self.memory_saver.put({
-                    "configurable": {"thread_id": exchange.thread_id},
-                    "checkpoint_id": exchange.exchange_id
-                }, checkpoint_data)
-                
-            self.logger.debug("Initialized LangGraph checkpoint memory with existing exchanges")
+
+                self.memory_saver.put(
+                    {
+                        "configurable": {"thread_id": exchange.thread_id},
+                        "checkpoint_id": exchange.exchange_id,
+                    },
+                    checkpoint_data,
+                )
+
+            self.logger.debug(
+                "Initialized LangGraph checkpoint memory with existing exchanges"
+            )
         except Exception as e:
             self.logger.error(f"Failed to initialize LangGraph checkpoint memory: {e}")
             # Continue without LangGraph memory - not critical for functionality
@@ -448,14 +462,14 @@ class ConversationVectorStore:
             raise VectorStoreError(f"Failed to save vector store data: {e}")
 
     def get_episodic_context(
-        self, 
-        query_text: str, 
-        max_context_length: int = 2000, 
-        relevance_threshold: float = 0.7
+        self,
+        query_text: str,
+        max_context_length: int = 2000,
+        relevance_threshold: float = 0.7,
     ) -> List[Exchange]:
         """
         Get context using LangGraph checkpoint memory with smart pruning.
-        
+
         Parameters
         ----------
         query_text : str
@@ -464,7 +478,7 @@ class ConversationVectorStore:
             Maximum total character length for context
         relevance_threshold : float
             Minimum relevance score for including exchanges
-            
+
         Returns
         -------
         List[Exchange]
@@ -474,67 +488,71 @@ class ConversationVectorStore:
             # Use regular similarity search as primary method
             # Enhanced with smart pruning for token optimization
             similar_exchanges = self.find_similar_exchanges(
-                query_text, 
-                self.config.vector_store.context_results * 2  # Get more for filtering
+                query_text,
+                self.config.vector_store.context_results * 2,  # Get more for filtering
             )
-            
+
             # Apply smart pruning for context length
             relevant_exchanges = []
             total_length = 0
-            
+
             for exchange in similar_exchanges:
                 # Calculate length of this exchange
-                exchange_length = len(exchange.user_prompt) + len(exchange.assistant_response)
-                
+                exchange_length = len(exchange.user_prompt) + len(
+                    exchange.assistant_response
+                )
+
                 # Only add if it fits within context window
                 if total_length + exchange_length <= max_context_length:
                     relevant_exchanges.append(exchange)
                     total_length += exchange_length
                 else:
                     break  # Stop adding more exchanges
-                    
+
             self.logger.debug(
                 f"Smart context pruning returned {len(relevant_exchanges)} exchanges "
                 f"with total length {total_length} chars"
             )
-            
+
             return relevant_exchanges
-            
+
         except Exception as e:
             self.logger.warning(f"Context retrieval failed: {e}")
             # Fallback to regular similarity search
-            return self.find_similar_exchanges(query_text, self.config.vector_store.context_results)
-            
+            return self.find_similar_exchanges(
+                query_text, self.config.vector_store.context_results
+            )
+
     def prune_context_for_tokens(
-        self, 
-        exchanges: List[Exchange], 
-        max_tokens: int = 1000
+        self, exchanges: List[Exchange], max_tokens: int = 1000
     ) -> List[Exchange]:
         """
         Prune context exchanges to fit within token limit.
-        
+
         Uses approximate token counting (4 chars per token) for efficiency.
-        
+
         Parameters
         ----------
         exchanges : List[Exchange]
             List of exchanges to prune
         max_tokens : int
             Maximum number of tokens to use
-            
+
         Returns
         -------
         List[Exchange]
             Pruned list of exchanges
         """
         max_chars = max_tokens * 4  # Rough approximation: 4 chars per token
-        
+
         pruned_exchanges = []
         total_chars = 0
-        
+
         for exchange in exchanges:
-            exchange_chars = len(exchange.user_prompt) + len(exchange.assistant_response)
-            
+            exchange_chars = len(exchange.user_prompt) + len(
+                exchange.assistant_response
+            )
+
             if total_chars + exchange_chars <= max_chars:
                 pruned_exchanges.append(exchange)
                 total_chars += exchange_chars
@@ -543,9 +561,11 @@ class ConversationVectorStore:
                 remaining_chars = max_chars - total_chars
                 if remaining_chars > 100:  # Only if we have meaningful space left
                     # Create truncated exchange
-                    truncated_prompt = exchange.user_prompt[:remaining_chars//2]
-                    truncated_response = exchange.assistant_response[:remaining_chars//2]
-                    
+                    truncated_prompt = exchange.user_prompt[: remaining_chars // 2]
+                    truncated_response = exchange.assistant_response[
+                        : remaining_chars // 2
+                    ]
+
                     truncated_exchange = Exchange(
                         exchange_id=exchange.exchange_id,
                         thread_id=exchange.thread_id,
@@ -553,15 +573,15 @@ class ConversationVectorStore:
                         user_prompt=truncated_prompt + "...",
                         assistant_response=truncated_response + "...",
                         timestamp=exchange.timestamp,
-                        prior_exchange_ids=exchange.prior_exchange_ids
+                        prior_exchange_ids=exchange.prior_exchange_ids,
                     )
                     pruned_exchanges.append(truncated_exchange)
-                    
+
                 break
-                
+
         self.logger.debug(
             f"Pruned {len(exchanges)} exchanges to {len(pruned_exchanges)} "
             f"for token limit {max_tokens}"
         )
-        
+
         return pruned_exchanges
