@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "ocat"
+version = "0.1.0"
+description = "A interactive LLM Chat CLI`"
+authors = ["Alex Loveless <alex@alexloveless.uk>"]
+license = "MIT"
+readme = "README.md"
+keywords = ["cli", "file-processing", "concatenation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+packages = [{ include = "ocat", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+rich = "^14.0.0"
+prompt-toolkit = "^3.0.51"
+pyyaml = "^6.0.2"
+pydantic = "^2.11.7"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+black = "^21.5b1"
+mypy = "^0.910"
+ruff = "*"
+
+[tool.poetry.scripts]
+ocat = "ocat.cli:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

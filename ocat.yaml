@@ -1,0 +1,46 @@
+# Ocat Configuration File
+
+profile_name: "Default"              # Name of the profile for this configuration
+
+# Model Configuration
+model_config:
+  model: "gpt-4o-mini"               # Name of the model to use
+  temperature: 1.0                   # Controls randomness in responses (0.0-1.0)
+  max_tokens: 4000                   # Maximum tokens for responses
+  system_prompt_files: []            # List of files containing system prompts to concatenate
+    # - "/path/to/system/prompt/file.md"
+
+# Vector Store Options (for Retrieval-Augmented Generation)
+vector_store:
+  enabled: true                      # Enable the vector database for conversation memory
+  path: "./vector_stores/default/"   # Path to vector store directory
+  similarity_threshold: 0.65         # Threshold for similarity matching (0.0-1.0)
+  chat_window: 3                     # Number of recent exchanges to use for context queries
+  context_results: 5                 # Number of similar exchanges to return for context
+
+# Embedding Configuration
+embedding:
+  model: "text-embedding-3-small"    # Embedding model name
+  dimensions: 1536                   # Embedding vector dimensions
+  chunk_size: 1000                   # Text chunk size for embeddings
+
+# Display Options
+display:
+  user_label: "User"                 # Label for user input
+  assistant_label: "Assistant"       # Label for assistant responses
+  no_rich: false                     # Disable rich text formatting
+  no_color: false                    # Disable ANSI color output
+  line_width: 80                     # CLI line width (characters)
+  response_on_new_line: true         # Start responses on new line
+
+# Logging Configuration
+logging:
+  level: "WARN"                      # Logging level (DEBUG, INFO, WARN, ERROR)
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"  # Log format
+  show_context: false                # Show context information in INFO logging
+
+# Location aliases for commands
+# Define shortcuts for commonly used directories
+locations: {}
+  # conv: "~/conversations/"
+  # docs: "~/documents/"

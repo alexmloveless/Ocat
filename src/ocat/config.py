@@ -1,0 +1,291 @@
+"""
+Configuration module for Ocat.
+
+Handles loading and managing configuration settings for the application,
+including LLM model settings, vector store, UI preferences, and more.
+"""
+
+import os
+import yaml
+from pathlib import Path
+from typing import Optional, Dict, Any, List
+from pydantic import BaseModel, Field, validator, field_validator, computed_field, ValidationError
+
+
+class ModelConfig(BaseModel):
+    """
+    LLM model configuration.
+    
+    Attributes
+    ----------
+    model : str
+        The LLM model to use (default: "gpt-4o-mini")
+    temperature : float
+        Temperature setting for model responses (0.0-1.0)
+    max_tokens : int
+        Maximum tokens for responses
+    system_prompt_files : List[str]
+        List of files containing system prompts to concatenate
+    """
+    
+    model: str = Field(default="gpt-4o-mini", description="LLM model name")
+    temperature: float = Field(default=1.0, ge=0.0, le=1.0, description="Response randomness (0.0-1.0)")
+    max_tokens: int = Field(default=4000, gt=0, description="Maximum response tokens")
+    system_prompt_files: List[str] = Field(default_factory=list, description="System prompt file paths")
+
+
+class VectorStoreConfig(BaseModel):
+    """
+    Vector store configuration for conversation memory.
+    
+    Attributes
+    ----------
+    enabled : bool
+        Enable the vector database for conversation memory
+    path : str
+        Path to vector store directory
+    similarity_threshold : float
+        Threshold for similarity matching (0.0-1.0)
+    chat_window : int
+        Number of recent exchanges to use for context queries
+    context_results : int
+        Number of similar exchanges to return for context
+    """
+    
+    enabled: bool = Field(default=True, description="Enable vector store")
+    path: str = Field(default="./vector_stores/default/", description="Vector store directory path")
+    similarity_threshold: float = Field(default=0.65, ge=0.0, le=1.0, description="Similarity threshold (0.0-1.0)")
+    chat_window: int = Field(default=3, gt=0, description="Recent exchanges for context queries")
+    context_results: int = Field(default=5, gt=0, description="Number of context results to return")
+
+
+class EmbeddingConfig(BaseModel):
+    """
+    Embedding model configuration.
+    
+    Attributes
+    ----------
+    model : str
+        Embedding model name
+    dimensions : int
+        Embedding vector dimensions
+    chunk_size : int
+        Text chunk size for embeddings
+    """
+    
+    model: str = Field(default="text-embedding-3-small", description="Embedding model name")
+    dimensions: int = Field(default=1536, gt=0, description="Embedding vector dimensions")
+    chunk_size: int = Field(default=1000, gt=0, description="Text chunk size")
+
+
+class DisplayConfig(BaseModel):
+    """
+    UI and display configuration.
+    
+    Attributes
+    ----------
+    user_label : str
+        Label for user input
+    assistant_label : str
+        Label for assistant responses
+    no_rich : bool
+        Disable rich text formatting
+    no_color : bool
+        Disable ANSI color output
+    line_width : int
+        CLI line width (characters)
+    response_on_new_line : bool
+        Whether responses start on new line
+    """
+    
+    user_label: str = Field(default="User", description="Label for user input")
+    assistant_label: str = Field(default="Assistant", description="Label for assistant responses")
+    no_rich: bool = Field(default=False, description="Disable rich text formatting")
+    no_color: bool = Field(default=False, description="Disable ANSI color output")
+    line_width: int = Field(default=80, gt=0, description="CLI line width (characters)")
+    response_on_new_line: bool = Field(default=True, description="Start responses on new line")
+
+
+class LoggingConfig(BaseModel):
+    """
+    Logging configuration.
+    
+    Attributes
+    ----------
+    level : str
+        Logging level (DEBUG, INFO, WARN, ERROR)
+    format : str
+        Log message format string
+    show_context : bool
+        Show context information in INFO logging
+    """
+    
+    level: str = Field(default="WARN", description="Logging level")
+    format: str = Field(default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", description="Log format")
+    show_context: bool = Field(default=False, description="Show context in INFO logs")
+    
+    @field_validator('level')
+    def validate_log_level(cls, v):
+        """Validate log level is one of the accepted values."""
+        valid_levels = ['DEBUG', 'INFO', 'WARN', 'ERROR']
+        if v.upper() not in valid_levels:
+            raise ValueError(f"Log level must be one of: {valid_levels}")
+        return v.upper()
+
+
+class Config(BaseModel):
+    """
+    Main configuration class for Ocat application.
+    
+    Attributes
+    ----------
+    profile_name : Optional[str]
+        Name of the profile for this configuration
+    model_config : ModelConfig
+        LLM model configuration
+    vector_store : VectorStoreConfig
+        Vector store configuration
+    embedding : EmbeddingConfig
+        Embedding configuration
+    display : DisplayConfig
+        Display and UI configuration
+    logging : LoggingConfig
+        Logging configuration
+    locations : Dict[str, str]
+        Location aliases for commands
+    """
+    
+    profile_name: Optional[str] = Field(default=None, description="Profile name")
+    model_config: ModelConfig = Field(default_factory=ModelConfig)
+    vector_store: VectorStoreConfig = Field(default_factory=VectorStoreConfig)
+    embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
+    display: DisplayConfig = Field(default_factory=DisplayConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    locations: Dict[str, str] = Field(default_factory=dict, description="Location aliases")
+    
+    
+    @classmethod
+    def load(cls, config_path: Optional[str] = None) -> "Config":
+        """
+        Load configuration from YAML file or environment variables.
+        
+        Parameters
+        ----------
+        config_path : Optional[str]
+            Path to configuration file (optional)
+            
+        Returns
+        -------
+        Config
+            Loaded configuration instance
+            
+        Raises
+        ------
+        ValueError
+            If configuration file is invalid
+        """
+        config_data = {}
+        
+        # Try to load from config file
+        if config_path:
+            config_data = cls._load_from_file(config_path)
+        else:
+            # Try default YAML locations
+            default_paths = [
+                Path.home() / ".ocat" / "config.yaml",
+                Path.cwd() / "ocat.yaml", 
+                Path.cwd() / ".ocat.yaml"
+            ]
+            
+            for path in default_paths:
+                if path.exists():
+                    config_data = cls._load_from_file(str(path))
+                    break
+        
+        # Create config instance with file data
+        config = cls(**config_data)
+        
+        # Override with environment variables
+        config._load_from_env()
+        
+        return config
+    
+    @classmethod
+    def _load_from_file(cls, file_path: str) -> Dict[str, Any]:
+        """
+        Load configuration from YAML file.
+        
+        Parameters
+        ----------
+        file_path : str
+            Path to the YAML configuration file
+            
+        Returns
+        -------
+        Dict[str, Any]
+            Configuration data from file
+            
+        Raises
+        ------
+        ValueError
+            If YAML file is invalid
+        """
+        try:
+            with open(file_path, 'r') as f:
+                data = yaml.safe_load(f)
+            return data if data is not None else {}
+                    
+        except FileNotFoundError:
+            return {}  # File doesn't exist, use defaults
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML configuration file {file_path}: {e}")
+    
+    def _load_from_env(self) -> None:
+        """Load configuration from environment variables."""
+        # Model configuration overrides
+        if os.getenv("OCAT_MODEL"):
+            self.model_config.model = os.getenv("OCAT_MODEL")
+        if os.getenv("OCAT_MAX_TOKENS"):
+            self.model_config.max_tokens = int(os.getenv("OCAT_MAX_TOKENS"))
+        if os.getenv("OCAT_TEMPERATURE"):
+            self.model_config.temperature = float(os.getenv("OCAT_TEMPERATURE"))
+            
+        # Vector store configuration overrides
+        if os.getenv("OCAT_VECTOR_STORE_PATH"):
+            self.vector_store.path = os.getenv("OCAT_VECTOR_STORE_PATH")
+        if os.getenv("OCAT_VECTOR_STORE_ENABLED"):
+            self.vector_store.enabled = os.getenv("OCAT_VECTOR_STORE_ENABLED").lower() == "true"
+            
+        # Logging configuration overrides
+        if os.getenv("OCAT_LOG_LEVEL"):
+            self.logging.level = os.getenv("OCAT_LOG_LEVEL").upper()
+            
+        # Profile name override
+        if os.getenv("OCAT_PROFILE_NAME"):
+            self.profile_name = os.getenv("OCAT_PROFILE_NAME")
+    
+    def save(self, file_path: str) -> None:
+        """
+        Save configuration to YAML file.
+        
+        Parameters
+        ----------
+        file_path : str
+            Path where to save the configuration
+        """
+        # Create directory if it doesn't exist
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(file_path, 'w') as f:
+            yaml.dump(self.model_dump(), f, default_flow_style=False, indent=2)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert configuration to dictionary.
+        
+        Returns
+        -------
+        Dict[str, Any]
+            Configuration as dictionary
+        """
+        return self.model_dump()
