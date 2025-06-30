@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Post-commit hook to automatically update development requests
+# Copy to .git/hooks/post-commit and make executable
+
+# Get the commit message
+commit_msg=$(git log --format=%B -n 1 HEAD)
+
+# Look for request IDs in commit message (BUG-YYYYMMDD-NN or FEAT-YYYYMMDD-NN)
+if [[ $commit_msg =~ (BUG|FEAT)-[0-9]{8}-[0-9]{2} ]]; then
+    request_id="${BASH_REMATCH[0]}"
+    commit_hash=$(git rev-parse HEAD)
+    
+    # Update the request with commit info
+    if [[ -f ".dev/devreq" ]]; then
+        ./.dev/devreq update "$request_id" "$commit_hash"
+        echo "Updated request $request_id with commit $commit_hash"
+    fi
+fi

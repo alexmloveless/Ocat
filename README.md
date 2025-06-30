@@ -1,4 +1,10 @@
-# Ocat 🐱
+# Ocat
+
+## Development
+
+**For contributors and LLMs**: See [DEVELOPMENT.md](./DEVELOPMENT.md) for our development request process.
+
+---
 
 An interactive LLM Chat CLI tool that provides a beautiful command-line interface for chatting with Large Language Models.
 
