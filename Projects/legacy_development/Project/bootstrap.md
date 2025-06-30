@@ -11,7 +11,7 @@ Based on this project file and the current state of the project based on LLM/pro
 - Create a new branch for your task, and commit your changes regularly
 
 ##  Housekeeping
-- You will log your progress in the LLM/project_state.md file. This will be used to track the state of the project and to provide context for future development.
+- You will log your progress in the Project/project_state.md file. This will be used to track the state of the project and to provide context for future development.
 - Tasks should be broken down into small, manageable steps that can be completed in a single session.
 - Tasks should be broken down into the most logical atomic state to minimise pressure on attention and context.
 - You will not create any tasks that are not directly related to the core goals and principles of the project.
@@ -19,7 +19,7 @@ Based on this project file and the current state of the project based on LLM/pro
 - You will not interact with ANY parts of the file-system outside the root of the Ocat package, except where explicitly requested by the user.
 - You will always employ minimalist design principles while keep as close to best practise as possible.
 - You will not use any libraries or tools that are not explicitly allowed by the user.
-- All decision made by the user will be documented in the LLM/project_state.md file.
+- All decision made by the user will be documented in the Project/project_state.md file.
 - The project state file as well as this file will be considered sacrosanct and maintained as accurately as possible.
 - The file and the scope of the project will be updated as the project progresses, and you will not make any changes to this file without the user's permission.
 - You will seek to minimise the number of non-code files in the project, and you will not create any files that are not directly related to the project or required for future development.;w

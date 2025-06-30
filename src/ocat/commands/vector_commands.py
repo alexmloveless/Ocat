@@ -50,30 +50,20 @@ class VectorAddCommand(BaseCommand):
             # Join all arguments as the text to add
             text_content = " ".join(args)
 
-            # Add to vector store
-            from ..vector_store import Exchange
-            import time
-            
-            # Create a synthetic exchange for the manual addition
-            exchange = Exchange(
-                exchange_id=f"manual_{int(time.time())}",
-                thread_id=getattr(context, 'thread_id', 'manual'),
-                session_id=getattr(context, 'session_id', 'manual'),
+            # Add to vector store using the correct method
+            exchange_id = context.vector_store.add_exchange(
                 user_prompt=text_content,
                 assistant_response="[Manual addition to vector store]",
-                prior_exchange_ids=[],
-                context=""
+                thread_id=getattr(context, 'thread_id', 'manual'),
+                session_id=getattr(context, 'session_id', 'manual')
             )
 
-            # Store in vector store
-            context.vector_store.store_exchange(exchange)
-
             context.console.print(
-                f"✅ Text added to vector store with ID: {exchange.exchange_id}",
+                f"✅ Text added to vector store with ID: {exchange_id}",
                 style="green"
             )
 
-            return CommandResult.success(f"Added text to vector store with ID: {exchange.exchange_id}")
+            return CommandResult.success(f"Added text to vector store with ID: {exchange_id}")
 
         except Exception as e:
             return CommandResult.error(f"Failed to add to vector store: {e}")
@@ -170,7 +160,7 @@ class VectorGetCommand(BaseCommand):
             exchange_id = args[0]
 
             # Try to retrieve from vector store
-            exchange = context.vector_store.get_exchange(exchange_id)
+            exchange = context.vector_store.get_exchange_by_id(exchange_id)
 
             if exchange:
                 # Display the exchange
@@ -233,26 +223,27 @@ class VectorQueryCommand(BaseCommand):
             k = int(args[-1]) if len(args) > 1 and args[-1].isdigit() else 5
 
             # Query vector store
-            results = context.vector_store.search_similar(query_text, k=k)
+            similar_exchanges = context.vector_store.find_similar_exchanges(
+                query_text=query_text, 
+                n_results=k
+            )
 
-            if not results:
+            if not similar_exchanges:
                 return CommandResult.success("No similar exchanges found.")
 
             # Display results
-            results_table = Table(title=f"Similar Exchanges (Top {len(results)})")
+            results_table = Table(title=f"Similar Exchanges (Top {len(similar_exchanges)})")
             results_table.add_column("ID", style="cyan", no_wrap=True)
-            results_table.add_column("Score", style="yellow", no_wrap=True)
             results_table.add_column("User Prompt", style="white")
             results_table.add_column("Assistant Response", style="green")
 
-            for exchange, score in results:
+            for exchange in similar_exchanges:
                 # Truncate long content
                 user_truncated = (exchange.user_prompt[:60] + "...") if len(exchange.user_prompt) > 60 else exchange.user_prompt
                 assistant_truncated = (exchange.assistant_response[:60] + "...") if len(exchange.assistant_response) > 60 else exchange.assistant_response
                 
                 results_table.add_row(
                     exchange.exchange_id,
-                    f"{score:.3f}",
                     user_truncated,
                     assistant_truncated
                 )
@@ -260,7 +251,7 @@ class VectorQueryCommand(BaseCommand):
             context.console.print(results_table)
             context.console.print()
 
-            return CommandResult.success(f"Found {len(results)} similar exchanges.")
+            return CommandResult.success(f"Found {len(similar_exchanges)} similar exchanges.")
 
         except Exception as e:
             return CommandResult.error(f"Failed to query vector store: {e}")
