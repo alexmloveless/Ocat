@@ -1,6 +1,7 @@
 # DEVELOPMENT.md - LLM Quick Start Guide
 
 🚨 **CRITICAL**: Read this entire document before starting any development work.
+🚨 **CRITICAL**: Read the documents in Projects  before starting any development work 
 
 ## 🎯 IMMEDIATE ACTION REQUIRED
 

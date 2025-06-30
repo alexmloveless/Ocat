@@ -5,8 +5,11 @@ This module provides the main command-line interface for the Ocat application,
 handling user input, command parsing, and interaction coordination.
 """
 
-import sys
+# Disable ChromaDB telemetry before any imports to prevent telemetry errors
 import os
+os.environ['ANONYMIZED_TELEMETRY'] = 'False'
+
+import sys
 import argparse
 from typing import Optional, List
 import logging

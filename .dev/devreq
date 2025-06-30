@@ -61,13 +61,8 @@ create_request() {
     
     echo "Created: $filename"
     echo "ID: $id"
-    
-    # Open in editor if available
-    if command -v nvim &> /dev/null; then
-        nvim "$filename"
-    elif [[ -n "$EDITOR" ]]; then
-        $EDITOR "$filename"
-    fi
+    echo "File ready for editing at: $filename"
+    echo "Use 'devreq show $id' to view the template content"
 }
 
 # List requests

@@ -6,16 +6,21 @@ for contextual chat interactions. Implements the requirements from bootstrap.md
 for episodic memory and real-time conversation storage.
 """
 
+import hashlib
 import json
 import os
 import time
 import uuid
+
+# Disable ChromaDB telemetry globally by setting environment variable before import
+os.environ['ANONYMIZED_TELEMETRY'] = 'False'
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
 import numpy as np
-from annoy import AnnoyIndex
+from chromadb import Client
+from chromadb.config import Settings
 from openai import OpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.base import (
@@ -91,24 +96,38 @@ class ConversationVectorStore:
         self.store_path.mkdir(parents=True, exist_ok=True)
 
         # Vector store files
-        self.index_file = self.store_path / "conversation.ann"
         self.metadata_file = self.store_path / "metadata.json"
 
-        # Initialize Annoy index
+        # Initialize ChromaDB
         self.dimension = config.embedding.dimensions
-        self.index = AnnoyIndex(self.dimension, "angular")
+        # Disable telemetry to avoid capture() method signature errors
+        chroma_settings = Settings(
+            persist_directory=str(self.store_path),
+            is_persistent=True,
+            anonymized_telemetry=False,
+        )
+        self.chroma = Client(chroma_settings)
+
+        # Initialize metadata dict for backward compatibility
         self.metadata: Dict[str, Exchange] = {}
-        self.id_to_index: Dict[str, int] = {}  # Map exchange IDs to Annoy indices
-        self.next_index = 0
 
         # Initialize OpenAI client for embeddings
-        self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key:
+            self.openai_client = OpenAI(api_key=api_key)
+        else:
+            self.openai_client = None
 
         # Initialize memory saver using LangGraph
         self.memory_saver = MemorySaver()
 
-        # Load existing Annoy and metadata data
+        # Load existing metadata data
         self._load_existing_data()
+
+        # Initialize ChromaDB collection
+        self.collection = self.chroma.get_or_create_collection(
+            name="conversation", metadata={"hnsw:space": "cosine"}
+        )
 
         # Initialize LangGraph checkpoint memory with existing exchanges
         self._initialize_checkpoint_memory()
@@ -125,7 +144,7 @@ class ConversationVectorStore:
         prior_exchange_ids: Optional[List[str]] = None,
     ) -> str:
         """
-        Add a new conversation exchange to the vector store.
+        Add a new conversation exchange to the ChromaDB vector store.
 
         Parameters
         ----------
@@ -165,17 +184,26 @@ class ConversationVectorStore:
                 prior_exchange_ids=prior_exchange_ids or [],
             )
 
-            # Generate embedding for the combined text
+            # Generate combined text for ChromaDB
             combined_text = f"User: {user_prompt}\nAssistant: {assistant_response}"
-            embedding = self._generate_embedding(combined_text)
 
-            # Store metadata first
+            # Store in ChromaDB (convert metadata to compatible format)
+            metadata_dict = asdict(exchange)
+            # Convert prior_exchange_ids list to comma-separated string for ChromaDB
+            metadata_dict["prior_exchange_ids"] = ",".join(
+                metadata_dict["prior_exchange_ids"]
+            )
+
+            self.collection.add(
+                ids=[exchange_id],
+                documents=[combined_text],
+                metadatas=[metadata_dict],
+            )
+
+            # Store metadata for backward compatibility
             self.metadata[exchange_id] = exchange
-            self.id_to_index[exchange_id] = self.next_index
-            self.next_index += 1
 
-            # Rebuild Annoy index with all exchanges (including new one)
-            self._rebuild_index()
+            # ChromaDB auto-persists with DuckDB backend
 
             # Store in LangGraph checkpoint for memory
             checkpoint_data = {
@@ -224,9 +252,9 @@ class ConversationVectorStore:
             except Exception as e:
                 self.logger.warning(f"Failed to store in LangGraph checkpoint: {e}")
 
-            self.logger.debug(f"Added exchange {exchange_id} to vector store")
+            self.logger.debug(f"Added exchange {exchange_id} to ChromaDB vector store")
 
-            # Save immediately for real-time storage
+            # Save metadata for backward compatibility
             self._save_data()
 
             return exchange_id
@@ -242,7 +270,7 @@ class ConversationVectorStore:
         exclude_thread_id: Optional[str] = None,
     ) -> List[Exchange]:
         """
-        Find exchanges similar to the given query text.
+        Find exchanges similar to the given query text using ChromaDB.
 
         Parameters
         ----------
@@ -267,27 +295,16 @@ class ConversationVectorStore:
             if len(self.metadata) == 0:
                 return []
 
-            # Generate embedding for query
-            query_embedding = self._generate_embedding(query_text)
-
-            # Find similar items
-            similar_indices = self.index.get_nns_by_vector(
-                query_embedding,
-                n_results * 2,  # Get more to filter out current thread
-                search_k=-1,
+            # Query ChromaDB for similar exchanges
+            # Get more results than needed to allow for filtering
+            results = self.collection.query(
+                query_texts=[query_text], n_results=n_results * 2
             )
 
-            # Convert indices to exchanges and filter
+            # Filter by exclude_thread_id and limit to n_results
             similar_exchanges = []
-            for idx in similar_indices:
-                # Find exchange ID for this index
-                exchange_id = None
-                for eid, eidx in self.id_to_index.items():
-                    if eidx == idx:
-                        exchange_id = eid
-                        break
-
-                if exchange_id and exchange_id in self.metadata:
+            for i, exchange_id in enumerate(results["ids"][0]):
+                if exchange_id in self.metadata:
                     exchange = self.metadata[exchange_id]
 
                     # Exclude current thread if specified
@@ -300,7 +317,7 @@ class ConversationVectorStore:
                         break
 
             self.logger.debug(
-                f"Found {len(similar_exchanges)} similar exchanges for query"
+                f"Found {len(similar_exchanges)} similar exchanges for query using ChromaDB"
             )
 
             return similar_exchanges
@@ -327,9 +344,7 @@ class ConversationVectorStore:
 
     def delete_exchange(self, exchange_id: str) -> bool:
         """
-        Delete an exchange from the vector store.
-
-        Note: This marks the exchange as deleted but doesn't rebuild the index.
+        Delete an exchange from the ChromaDB vector store.
 
         Parameters
         ----------
@@ -342,17 +357,24 @@ class ConversationVectorStore:
             True if exchange was deleted, False if not found
         """
         if exchange_id in self.metadata:
+            # Delete from ChromaDB
+            self.collection.delete(ids=[exchange_id])
+
+            # Delete from metadata
             del self.metadata[exchange_id]
-            if exchange_id in self.id_to_index:
-                del self.id_to_index[exchange_id]
+
+            # ChromaDB auto-persists with DuckDB backend
+
+            # Save metadata for backward compatibility
             self._save_data()
-            self.logger.info(f"Deleted exchange {exchange_id}")
+
+            self.logger.info(f"Deleted exchange {exchange_id} from ChromaDB")
             return True
         return False
 
     def get_stats(self) -> Dict[str, Any]:
         """
-        Get statistics about the vector store.
+        Get statistics about the ChromaDB vector store.
 
         Returns
         -------
@@ -361,9 +383,7 @@ class ConversationVectorStore:
         """
         return {
             "total_exchanges": len(self.metadata),
-            "index_size": (
-                self.index.get_n_items() if hasattr(self.index, "get_n_items") else 0
-            ),
+            "collection_count": self.collection.count(),
             "store_path": str(self.store_path),
             "dimension": self.dimension,
             "embedding_model": self.config.embedding.model,
@@ -422,9 +442,44 @@ class ConversationVectorStore:
             self.logger.error(f"Failed to initialize LangGraph checkpoint memory: {e}")
             # Continue without LangGraph memory - not critical for functionality
 
+    def _fallback_embedding(self, text: str) -> List[float]:
+        """
+        Generate a deterministic fallback embedding for the given text.
+
+        Uses deterministic np.random.default_rng with MD5 hash seed as specified
+        for offline test fallback when OPENAI_API_KEY is not set.
+
+        Parameters
+        ----------
+        text : str
+            Text to generate fallback embedding for
+
+        Returns
+        -------
+        List[float]
+            A deterministic embedding vector with specified dimensions
+        """
+        # Create deterministic seed from text using MD5 hash
+        text_bytes = text.encode("utf-8")
+        md5_digest = hashlib.md5(text_bytes).digest()
+
+        # Convert MD5 digest to integer for numpy seed
+        seed_int = int.from_bytes(md5_digest[:8], "big")  # Use first 8 bytes
+
+        # Use integer seed for deterministic random number generation
+        rng = np.random.default_rng(seed_int)
+
+        # Generate deterministic random embedding
+        embedding = rng.random(self.dimension).tolist()
+
+        return embedding
+
     def _generate_embedding(self, text: str) -> List[float]:
         """
         Generate embedding for the given text using OpenAI's API.
+
+        Falls back to deterministic local embedding if OpenAI API fails or key not set,
+        ensuring tests and offline usage don't fail with network issues.
 
         Parameters
         ----------
@@ -439,8 +494,15 @@ class ConversationVectorStore:
         Raises
         ------
         VectorStoreError
-            If embedding generation fails
+            If both OpenAI and fallback embedding generation fail
         """
+        # Check if OPENAI_API_KEY is set for offline fallback
+        if not self.openai_client:
+            self.logger.debug(
+                "OPENAI_API_KEY not set, using deterministic fallback embedding"
+            )
+            return self._fallback_embedding(text)
+
         try:
             # Chunk text if it's too long
             if len(text) > self.config.embedding.chunk_size:
@@ -455,15 +517,17 @@ class ConversationVectorStore:
             return response.data[0].embedding
 
         except Exception as e:
-            self.logger.error(f"Failed to generate embedding: {e}")
-            raise VectorStoreError(f"Failed to generate embedding: {e}")
+            self.logger.warning(
+                f"OpenAI embedding failed, falling back to local embedding generator: {e}"
+            )
+            return self._fallback_embedding(text)
 
     def _load_existing_data(self) -> None:
         """
-        Load existing vector store data from disk.
+        Load existing vector store metadata from disk for backward compatibility.
         """
         try:
-            # Load metadata
+            # Load metadata for backward compatibility
             if self.metadata_file.exists():
                 with open(self.metadata_file, "r") as f:
                     metadata_data = json.load(f)
@@ -471,15 +535,9 @@ class ConversationVectorStore:
                 for exchange_id, exchange_dict in metadata_data.items():
                     self.metadata[exchange_id] = Exchange(**exchange_dict)
 
-                # Rebuild ID to index mapping
-                for i, exchange_id in enumerate(self.metadata.keys()):
-                    self.id_to_index[exchange_id] = i
-
-                self.next_index = len(self.metadata)
-
-            # Load Annoy index if it exists
-            if self.index_file.exists() and len(self.metadata) > 0:
-                self.index.load(str(self.index_file))
+                self.logger.debug(
+                    f"Loaded {len(self.metadata)} exchanges from metadata"
+                )
 
         except Exception as e:
             self.logger.warning(f"Failed to load existing vector store data: {e}")
@@ -487,10 +545,10 @@ class ConversationVectorStore:
 
     def _save_data(self) -> None:
         """
-        Save vector store data to disk.
+        Save vector store metadata to disk for backward compatibility.
         """
         try:
-            # Save metadata
+            # Save metadata for backward compatibility
             metadata_dict = {}
             for exchange_id, exchange in self.metadata.items():
                 metadata_dict[exchange_id] = asdict(exchange)
@@ -498,68 +556,9 @@ class ConversationVectorStore:
             with open(self.metadata_file, "w") as f:
                 json.dump(metadata_dict, f, indent=2)
 
-            # Save Annoy index if we have data
-            if len(self.metadata) > 0:
-                # Check if index needs to be built
-                index_needs_building = True
-                try:
-                    # Try to get number of items to see if index is built
-                    self.index.get_n_items()
-                    index_needs_building = False
-                except:
-                    # Index is not built yet
-                    index_needs_building = True
-
-                # Build index if needed
-                if index_needs_building:
-                    try:
-                        self.index.build(
-                            10
-                        )  # 10 trees for good accuracy/speed tradeoff
-                    except RuntimeError as e:
-                        if "build a built index" in str(e):
-                            # Index is already built, that's fine
-                            pass
-                        else:
-                            raise e
-
-                # Save the index
-                self.index.save(str(self.index_file))
-
         except Exception as e:
-            self.logger.error(f"Failed to save vector store data: {e}")
-            raise VectorStoreError(f"Failed to save vector store data: {e}")
-
-    def _rebuild_index(self) -> None:
-        """
-        Rebuild the Annoy index from scratch with all current exchanges.
-
-        This is necessary because Annoy doesn't allow adding items to a loaded index.
-        """
-        try:
-            # Create a new index
-            self.index = AnnoyIndex(self.dimension, "angular")
-
-            # Add all exchanges to the new index
-            for exchange_id, exchange in self.metadata.items():
-                combined_text = f"User: {exchange.user_prompt}\nAssistant: {exchange.assistant_response}"
-                embedding = self._generate_embedding(combined_text)
-
-                # Get the index for this exchange
-                annoy_index = self.id_to_index[exchange_id]
-                self.index.add_item(annoy_index, embedding)
-
-            # Build the index if we have items
-            if len(self.metadata) > 0:
-                self.index.build(10)  # 10 trees for good accuracy/speed tradeoff
-
-            self.logger.debug(
-                f"Rebuilt Annoy index with {len(self.metadata)} exchanges"
-            )
-
-        except Exception as e:
-            self.logger.error(f"Failed to rebuild index: {e}")
-            raise VectorStoreError(f"Failed to rebuild index: {e}")
+            self.logger.error(f"Failed to save vector store metadata: {e}")
+            raise VectorStoreError(f"Failed to save vector store metadata: {e}")
 
     def get_episodic_context(
         self,

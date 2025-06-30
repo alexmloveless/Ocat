@@ -326,7 +326,7 @@ class VectorStatsCommand(BaseCommand):
 
             # Display basic statistics
             stats_table.add_row("Total Exchanges", str(stats.get("total_exchanges", 0)))
-            stats_table.add_row("Total Vectors", str(stats.get("total_vectors", 0)))
+            stats_table.add_row("Total Vectors", str(stats.get("index_size", 0)))
             stats_table.add_row("Embedding Model", context.config.embedding.model)
             stats_table.add_row(
                 "Embedding Dimensions", str(context.config.embedding.dimensions)
