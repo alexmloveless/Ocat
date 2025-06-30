@@ -8,7 +8,10 @@ This allows the package to be executed with:
 
 # Disable ChromaDB telemetry globally before any imports
 import os
-os.environ['ANONYMIZED_TELEMETRY'] = 'False'
+
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+# Disable tokenizers parallelism to prevent fork warnings
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 from .cli import main
 

@@ -11,9 +11,16 @@ import json
 import os
 import time
 import uuid
+import logging
+
+# Suppress ChromaDB telemetry errors
+logging.getLogger("chromadb.telemetry").setLevel(logging.CRITICAL)
+logging.getLogger("chromadb.telemetry.product.posthog").setLevel(logging.CRITICAL)
 
 # Disable ChromaDB telemetry globally by setting environment variable before import
-os.environ['ANONYMIZED_TELEMETRY'] = 'False'
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+# Disable tokenizers parallelism to prevent fork warnings
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple

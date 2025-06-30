@@ -7,7 +7,10 @@ handling user input, command parsing, and interaction coordination.
 
 # Disable ChromaDB telemetry before any imports to prevent telemetry errors
 import os
-os.environ['ANONYMIZED_TELEMETRY'] = 'False'
+
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+# Disable tokenizers parallelism to prevent fork warnings
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import sys
 import argparse
@@ -515,7 +518,7 @@ def handle_headless_vector_store_stats(config: Config, console: Console) -> int:
         table.add_column("Value", style="white")
 
         table.add_row("Total Exchanges", str(stats["total_exchanges"]))
-        table.add_row("Index Size", str(stats["index_size"]))
+        table.add_row("Collection Count", str(stats["collection_count"]))
         table.add_row("Store Path", stats["store_path"])
         table.add_row("Vector Dimension", str(stats["dimension"]))
         table.add_row("Embedding Model", stats["embedding_model"])
