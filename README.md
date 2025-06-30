@@ -2,7 +2,7 @@
 
 ## Development
 
-**For contributors and LLMs**: See [DEVELOPMENT.md](./DEVELOPMENT.md) for our development request process.
+**For contributors and LLMs**: See [DEVELOPMENT.md](./DEVELOPMENT.md) for complete development guide and process.
 
 ---
 

@@ -1,62 +1,191 @@
-# Development Process
+# DEVELOPMENT.md - LLM Quick Start Guide
 
-This project uses a structured development request management system optimized for LLM-assisted development.
+🚨 **CRITICAL**: Read this entire document before starting any development work.
 
-## 🚀 Quick Start
+## 🎯 IMMEDIATE ACTION REQUIRED
 
-```bash
-# Create a bug report
-./.dev/devreq create bug
-
-# Create a feature request  
-./.dev/devreq create feature
-
-# List current requests
-./.dev/devreq list
-
-# Get help
-./.dev/devreq help
-```
-
-## 📋 For LLMs and AI Assistants
-
-### 🚨 CRITICAL: Immediate Bug Reporting
-
-**If you encounter ANY unrelated bug, failing test, or issue while working:**
+### 1. MANDATORY Bug Reporting Protocol
+**IF YOU ENCOUNTER ANY BUG, FAILING TEST, OR ISSUE UNRELATED TO YOUR CURRENT TASK:**
 
 ```bash
-# Immediately create a bug report
+# IMMEDIATELY create a bug report - DO NOT attempt to fix it
 ./.dev/devreq create bug
-# Fill out template, mark priority, then continue with original task
 ```
 
-**Do NOT attempt to fix unrelated issues - just document them!**
+Fill out the template completely and continue with your original task. This ensures all issues are tracked systematically.
 
-### When asked to work on bugs or features:
+### 2. Development Request Process 
+**ALWAYS work through the request system:**
 
-1. **Check for existing requests**: `./.dev/devreq list backlog`
-2. **Read request details**: `./.dev/devreq show <ID>`
-3. **Implement the fix/feature** following the specifications
-4. **Update with commit**: `./.dev/devreq update <ID>` (after committing)
-5. **Mark complete**: `./.dev/devreq complete <ID>`
+```bash
+# Check existing work
+./.dev/devreq list backlog
 
-## 📖 Full Documentation
+# Read specific request
+./.dev/devreq show <REQUEST-ID>
 
-See [.dev/README.md](./.dev/README.md) for complete process documentation.
+# After completing work
+./.dev/devreq update <REQUEST-ID>
+./.dev/devreq complete <REQUEST-ID>
+```
 
-## 🔧 Process Commands
+## 🛠️ Core Development Process
 
-All development requests are managed through the `./.dev/devreq` command:
-- `create [bug|feature]` - Create new request
-- `list [backlog|completed]` - List requests  
-- `show <ID>` - Show request details
-- `update <ID> [commit]` - Update with git commit
-- `complete <ID>` - Mark as completed
+### Development Workflow (ALWAYS follow this order)
+```bash
+# 1. ALWAYS use dev.sh for complete cycle
+./dev.sh "feat: your commit message"
 
-## 📁 Request Storage
+# This runs: black → mypy → pytest → git add → git commit
+# Following conventional commits: feat/fix/docs/test/refactor
+```
 
-- **Active requests**: `.dev/backlog/`
-- **Completed requests**: `.dev/completed/`
-- **Templates**: `.dev/templates/`
+### Testing & Quality (Run before every commit)
+```bash
+# These are automatically run by dev.sh
+poetry run black src tests    # Code formatting
+poetry run mypy src          # Type checking  
+poetry run pytest           # Test suite
+```
 
-Request IDs follow the format: `BUG-YYYYMMDD-NN` or `FEAT-YYYYMMDD-NN`
+### Project Setup
+```bash
+# Environment setup
+poetry install
+
+# Run application
+poetry run ocat
+```
+
+## 📁 Key Project Structure
+```
+ocat/
+├── src/ocat/           # Main application code
+│   ├── cli.py         # CLI interface
+│   ├── config.py      # Configuration management
+│   └── chat.py        # Chat functionality
+├── tests/             # Test suite
+├── .dev/              # Development process management
+└── dev.sh             # MAIN DEVELOPMENT SCRIPT
+```
+
+## 🔧 Essential Commands
+
+### Development Request Management
+```bash
+./.dev/devreq create bug      # Create bug report
+./.dev/devreq create feature  # Create feature request
+./.dev/devreq list backlog    # List open work
+./.dev/devreq show BUG-YYYYMMDD-NN  # Read request details
+./.dev/devreq help           # Full command reference
+```
+
+### Git Process
+```bash
+# ALWAYS use conventional commits
+git commit -m "feat: add new feature"
+git commit -m "fix: resolve bug issue"
+git commit -m "docs: update documentation"
+git commit -m "test: add missing tests"
+git commit -m "refactor: improve code structure"
+```
+
+## 🐛 Bug Discovery Protocol
+
+When you find ANY unrelated issue:
+
+1. **Immediately create bug report**: `./.dev/devreq create bug`
+2. **Document completely**: Error messages, reproduction steps, files involved
+3. **Set priority**: HIGH for functionality issues, MEDIUM/LOW for others
+4. **DO NOT FIX**: Continue with original task
+5. **Examples requiring immediate reports**:
+   - Tests failing unrelated to current work
+   - Runtime errors in existing functionality  
+   - Configuration issues
+   - Missing dependencies
+   - Performance problems
+
+## 🚀 Release Process
+
+### Quick Release
+```bash
+./release.sh  # If available
+```
+
+### Manual Release Steps
+```bash
+poetry run pytest           # Test
+poetry run black src tests  # Format
+poetry run mypy src         # Type check
+# Edit pyproject.toml version
+poetry build               # Build package
+git tag v{version} && git push --tags
+```
+
+## 📖 Core Development Rules
+
+### Code Quality Requirements
+- **Always create docstrings** for Python functions (numpy format)
+- **Always use type hints** for functions and classes
+- **Use in-line comments** for complex/implicit code sections
+- **Keep code simple, clear and explicit**
+- **Follow all Python best practices**
+
+### Working Process
+1. **Read request specifications completely**
+2. **Focus on "Files Likely Involved" section**
+3. **Meet all "Acceptance Criteria" for features**
+4. **Address "Expected Behavior" for bugs**
+5. **Use ./dev.sh for all commits**
+6. **Update requests with commit hashes**
+
+### Environment Notes
+- Python at: `/Users/alex/opt/miniconda3/bin/python3`
+- Use `ocat` conda env when working on this project
+- Testing: pytest
+- Formatting: black  
+- Type checking: mypy
+
+## 🎯 Development Priorities
+
+1. **Minimum viable product approach** while achieving all objectives
+2. **Input/output token minimization**
+3. **Short, concise updates and summaries**
+4. **Focus on core functionality in tests**
+5. **Expose configurable parameters to user API**
+
+## ⚠️ Critical Notes
+
+- **NEVER bypass the ./dev.sh script** - it ensures complete quality checks
+- **ALWAYS document unrelated bugs immediately** - don't attempt fixes
+- **Read request files completely** before starting work
+- **Follow conventional commit format strictly**
+- **Update and complete requests after finishing work**
+
+## 📋 Quick Reference Commands
+
+```bash
+# Start development work
+./.dev/devreq list backlog              # See what needs doing
+./.dev/devreq show <REQUEST-ID>         # Read specific request
+
+# During development  
+./dev.sh "feat: implement feature X"    # Complete dev cycle
+
+# After completion
+./.dev/devreq update <REQUEST-ID>       # Record commit
+./.dev/devreq complete <REQUEST-ID>     # Mark as done
+
+# Emergency bug reporting
+./.dev/devreq create bug               # For ANY unrelated issue
+```
+
+## 📞 Need Help?
+- Process documentation: `.dev/README.md`
+- LLM instructions: `.dev/LLM-INSTRUCTIONS.md`  
+- Request templates: `.dev/templates/`
+- Command help: `./.dev/devreq help`
+
+---
+
+**Remember: Follow this process at all times. It ensures quality code, proper tracking, and systematic development.**
