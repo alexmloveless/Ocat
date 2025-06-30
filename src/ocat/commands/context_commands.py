@@ -35,7 +35,7 @@ class ShowContextCommand(BaseCommand):
         """
         try:
             # Initialize show_context attribute if it doesn't exist
-            if not hasattr(context, 'show_context'):
+            if not hasattr(context, "show_context"):
                 context.show_context = False
 
             if not args:
@@ -46,7 +46,7 @@ class ShowContextCommand(BaseCommand):
 
             # Parse the toggle argument
             toggle_arg = args[0].lower()
-            
+
             if toggle_arg == "on":
                 context.show_context = True
                 context.console.print("✅ Context display enabled", style="green")
@@ -56,7 +56,9 @@ class ShowContextCommand(BaseCommand):
                 context.console.print("✅ Context display disabled", style="green")
                 return CommandResult.success("Context display disabled")
             else:
-                return CommandResult.error("Invalid argument. Use 'on' or 'off', or no argument to check current state.")
+                return CommandResult.error(
+                    "Invalid argument. Use 'on' or 'off', or no argument to check current state."
+                )
 
         except Exception as e:
             return CommandResult.error(f"Failed to toggle context display: {e}")

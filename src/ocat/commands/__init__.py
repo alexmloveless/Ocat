@@ -17,7 +17,9 @@ from ..exceptions import OcatError
 class CommandResult:
     """Result of executing a command."""
 
-    def __init__(self, success: bool = True, message: str = "", data: Any = None) -> None:
+    def __init__(
+        self, success: bool = True, message: str = "", data: Any = None
+    ) -> None:
         """
         Initialize command result.
 

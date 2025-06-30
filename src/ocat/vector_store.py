@@ -18,7 +18,9 @@ import numpy as np
 from annoy import AnnoyIndex
 from openai import OpenAI
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.checkpoint.base import Checkpoint  # Using LangGraph checkpoint components
+from langgraph.checkpoint.base import (
+    Checkpoint,
+)  # Using LangGraph checkpoint components
 
 from .config import Config
 from .exceptions import VectorStoreError
@@ -194,15 +196,17 @@ class ConversationVectorStore:
                     "checkpoint_id": exchange.exchange_id,
                 }
                 # Create checkpoint with required metadata and new_versions
-                checkpoint = Checkpoint({
-                    "v": 1,
-                    "ts": str(exchange.timestamp),
-                    "id": exchange.exchange_id,
-                    "channel_values": checkpoint_data,
-                    "channel_versions": {},
-                    "versions_seen": {},
-                    "pending_sends": [],
-                })
+                checkpoint = Checkpoint(
+                    {
+                        "v": 1,
+                        "ts": str(exchange.timestamp),
+                        "id": exchange.exchange_id,
+                        "channel_values": checkpoint_data,
+                        "channel_versions": {},
+                        "versions_seen": {},
+                        "pending_sends": [],
+                    }
+                )
                 metadata = {
                     "source": "vector_store",
                     "thread_id": exchange.thread_id,
@@ -388,15 +392,17 @@ class ConversationVectorStore:
                     "checkpoint_id": exchange.exchange_id,
                 }
                 # Create checkpoint with required metadata and new_versions
-                checkpoint = Checkpoint({
-                    "v": 1,
-                    "ts": str(exchange.timestamp),
-                    "id": exchange.exchange_id,
-                    "channel_values": checkpoint_data,
-                    "channel_versions": {},
-                    "versions_seen": {},
-                    "pending_sends": [],
-                })
+                checkpoint = Checkpoint(
+                    {
+                        "v": 1,
+                        "ts": str(exchange.timestamp),
+                        "id": exchange.exchange_id,
+                        "channel_values": checkpoint_data,
+                        "channel_versions": {},
+                        "versions_seen": {},
+                        "pending_sends": [],
+                    }
+                )
                 metadata = {
                     "source": "vector_store",
                     "thread_id": exchange.thread_id,
@@ -503,18 +509,20 @@ class ConversationVectorStore:
                 except:
                     # Index is not built yet
                     index_needs_building = True
-                
+
                 # Build index if needed
                 if index_needs_building:
                     try:
-                        self.index.build(10)  # 10 trees for good accuracy/speed tradeoff
+                        self.index.build(
+                            10
+                        )  # 10 trees for good accuracy/speed tradeoff
                     except RuntimeError as e:
                         if "build a built index" in str(e):
                             # Index is already built, that's fine
                             pass
                         else:
                             raise e
-                
+
                 # Save the index
                 self.index.save(str(self.index_file))
 
@@ -525,28 +533,30 @@ class ConversationVectorStore:
     def _rebuild_index(self) -> None:
         """
         Rebuild the Annoy index from scratch with all current exchanges.
-        
+
         This is necessary because Annoy doesn't allow adding items to a loaded index.
         """
         try:
             # Create a new index
             self.index = AnnoyIndex(self.dimension, "angular")
-            
+
             # Add all exchanges to the new index
             for exchange_id, exchange in self.metadata.items():
                 combined_text = f"User: {exchange.user_prompt}\nAssistant: {exchange.assistant_response}"
                 embedding = self._generate_embedding(combined_text)
-                
+
                 # Get the index for this exchange
                 annoy_index = self.id_to_index[exchange_id]
                 self.index.add_item(annoy_index, embedding)
-            
+
             # Build the index if we have items
             if len(self.metadata) > 0:
                 self.index.build(10)  # 10 trees for good accuracy/speed tradeoff
-                
-            self.logger.debug(f"Rebuilt Annoy index with {len(self.metadata)} exchanges")
-            
+
+            self.logger.debug(
+                f"Rebuilt Annoy index with {len(self.metadata)} exchanges"
+            )
+
         except Exception as e:
             self.logger.error(f"Failed to rebuild index: {e}")
             raise VectorStoreError(f"Failed to rebuild index: {e}")

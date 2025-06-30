@@ -151,25 +151,25 @@ def display_welcome(console: Console, config: Optional[Config] = None) -> None:
         "Type /help to see available commands.",
         "Type /exit to quit the application.",
     ]
-    
+
     # Add model and profile information if config is available
     if config:
         welcome_lines.append(f"Model: {config.llm.model}")
         if config.profile_name:
             welcome_lines.append(f"Profile: {config.profile_name}")
-    
+
     # Create panel with proper width consideration
     welcome_content = "\n".join(welcome_lines)
-    
+
     # Use line width from config if available, otherwise default to 70
     panel_width = config.display.line_width - 4 if config else 70
-    
+
     panel = Panel(
         welcome_content,
         title="🐱 Ocat",
         border_style="bright_blue",
         width=min(panel_width, 76),  # Max width for readability
-        padding=(1, 2)
+        padding=(1, 2),
     )
 
     console.print(panel)

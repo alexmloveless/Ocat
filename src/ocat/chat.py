@@ -238,13 +238,15 @@ class ChatSession:
                 console=self.console,
                 transient=True,
             ) as progress:
-                task = progress.add_task(description="Generating response...", total=None)
+                task = progress.add_task(
+                    description="Generating response...", total=None
+                )
 
                 try:
                     # Add timeout and better error handling
                     response = await asyncio.wait_for(
                         self.llm_backend.generate_response(api_messages),
-                        timeout=120.0  # 2 minute timeout
+                        timeout=120.0,  # 2 minute timeout
                     )
                 except asyncio.TimeoutError:
                     self.logger.error("LLM request timed out")
@@ -263,8 +265,10 @@ class ChatSession:
                 console=self.console,
                 transient=True,
             ) as progress:
-                task = progress.add_task(description="Generating mock response...", total=None)
-                
+                task = progress.add_task(
+                    description="Generating mock response...", total=None
+                )
+
                 try:
                     # Add a small delay to simulate processing
                     await asyncio.sleep(0.5)
@@ -289,15 +293,19 @@ class ChatSession:
             # Display user message with configurable formatting
             if self.config.display.response_on_new_line:
                 # User label on its own line
-                user_label = Text(f"{self.config.display.user_label}:", style="bold bright_blue")
+                user_label = Text(
+                    f"{self.config.display.user_label}:", style="bold bright_blue"
+                )
                 self.console.print(user_label)
                 self.console.print(message.content, style="white")
             else:
                 # User label on same line
-                user_text = Text(f"{self.config.display.user_label}: ", style="bold bright_blue")
+                user_text = Text(
+                    f"{self.config.display.user_label}: ", style="bold bright_blue"
+                )
                 user_text.append(message.content, style="white")
                 self.console.print(user_text)
-            
+
             # Add spacing for better readability
             self.console.print()
 
@@ -305,10 +313,11 @@ class ChatSession:
             # Enhanced assistant message display with better spacing
             try:
                 # Try to render as markdown for better formatting
-                code_theme = "monokai" if self.config.display.high_contrast else "default"
+                code_theme = (
+                    "monokai" if self.config.display.high_contrast else "default"
+                )
                 content: Union[Markdown, str] = Markdown(
-                    message.content,
-                    code_theme=code_theme
+                    message.content, code_theme=code_theme
                 )
             except Exception:
                 # Fallback to plain text if markdown parsing fails
@@ -316,32 +325,40 @@ class ChatSession:
 
             # Use configurable assistant label
             assistant_title = f"🤖 {self.config.display.assistant_label}"
-            
+
             # Choose colors based on high contrast setting
-            border_style = "bright_green" if self.config.display.high_contrast else "green"
-            
+            border_style = (
+                "bright_green" if self.config.display.high_contrast else "green"
+            )
+
             # Create panel with accessibility-friendly styling
             panel = Panel(
                 content,
                 title=assistant_title,
                 border_style=border_style,
                 padding=(1, 2),
-                width=self.config.display.line_width if self.config.display.line_width > 0 else None
+                width=(
+                    self.config.display.line_width
+                    if self.config.display.line_width > 0
+                    else None
+                ),
             )
-            
+
             if self.config.display.response_on_new_line:
                 self.console.print()  # Extra line before response for clarity
-                
+
             self.console.print(panel)
-            
+
             # Add configurable exchange delimiter for visual separation
             delimiter_length = min(
-                self.config.display.exchange_delimiter_length, 
-                self.config.display.line_width
+                self.config.display.exchange_delimiter_length,
+                self.config.display.line_width,
             )
             delimiter = self.config.display.exchange_delimiter * delimiter_length
-            
-            delimiter_style = "dim bright_black" if self.config.display.high_contrast else "dim"
+
+            delimiter_style = (
+                "dim bright_black" if self.config.display.high_contrast else "dim"
+            )
             self.console.print(delimiter, style=delimiter_style)
             self.console.print()  # Extra spacing after each exchange
 
