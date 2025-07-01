@@ -218,17 +218,18 @@ class TestBasePrompt:
                 system_messages = [msg for msg in chat.messages if msg.role == "system"]
                 assert len(system_messages) == 1
                 content = system_messages[0].content
-                
+
                 # Check that original content is present
                 assert "This is the base prompt content" in content
-                
+
                 # Check that timestamp information is present
                 assert "Current Session Information" in content
                 assert "Session started at:" in content
                 assert "UTC time:" in content
-                
+
                 # Check timestamp format
                 import re
+
                 # Look for timestamp pattern (YYYY-MM-DD HH:MM:SS)
                 timestamp_pattern = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"
                 assert re.search(timestamp_pattern, content) is not None

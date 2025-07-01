@@ -28,6 +28,7 @@ class RememberCommand(BaseCommand):
         "critical": "Important information that should be prioritized in responses",
         "nudge": "Gentle reminders or suggestions for the user",
         "like": "Positive reinforcement for things the user enjoys",
+        "opinion": "User's personal views or beliefs on various topics",
         "dislike": "Negative reinforcement for things the user dislikes",
     }
 
@@ -90,9 +91,7 @@ class RememberCommand(BaseCommand):
             context.console.print(
                 f"✅ Remembered {remember_type}: {remember_text}", style="green"
             )
-            context.console.print(
-                f"   Stored with ID: {exchange_id}", style="dim"
-            )
+            context.console.print(f"   Stored with ID: {exchange_id}", style="dim")
 
             return CommandResult.success(
                 f"Stored {remember_type} information with ID: {exchange_id}"
@@ -122,15 +121,17 @@ class RememberCommand(BaseCommand):
         for type_name, description in self.VALID_TYPES.items():
             help_text.append(f"  {type_name:<10} - {description}")
 
-        help_text.extend([
-            "",
-            "Examples:",
-            '  /remember fact "I have a brother called Bob"',
-            '  /remember preference "I don\'t like eating fish much"',
-            '  /remember critical "If I mention this again, it is very important to me"',
-            "",
-            "The text after the type does not need to be enclosed in quotes.",
-            "Stored information will be tagged and retrievable in future conversations.",
-        ])
+        help_text.extend(
+            [
+                "",
+                "Examples:",
+                '  /remember fact "I have a brother called Bob"',
+                '  /remember preference "I don\'t like eating fish much"',
+                '  /remember critical "If I mention this again, it is very important to me"',
+                "",
+                "The text after the type does not need to be enclosed in quotes.",
+                "Stored information will be tagged and retrievable in future conversations.",
+            ]
+        )
 
         return "\n".join(help_text)

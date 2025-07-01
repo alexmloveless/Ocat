@@ -11,6 +11,7 @@ from pathlib import Path
 
 from . import command, BaseCommand, CommandResult
 from rich.panel import Panel
+from ..utils import resolve_path_with_aliases
 
 
 @command(
@@ -51,8 +52,12 @@ class AttachCommand(BaseCommand):
 
             for file_path in args:
                 try:
-                    path = Path(file_path).expanduser()
-
+                    # Resolve path with location aliases
+                    path = resolve_path_with_aliases(file_path, context.config.locations)
+                except ValueError as e:
+                    return CommandResult.error(str(e))
+                
+                try:
                     if not path.exists():
                         return CommandResult.error(f"File not found: {file_path}")
 
@@ -157,8 +162,12 @@ class WriteCodeCommand(BaseCommand):
             # Combine all code blocks
             combined_code = "\n\n".join(code_blocks)
 
-            # Write to file
-            output_path = Path(args[0]).expanduser()
+            # Write to file with location alias support
+            try:
+                output_path = resolve_path_with_aliases(args[0], context.config.locations)
+            except ValueError as e:
+                return CommandResult.error(str(e))
+            
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(output_path, "w", encoding="utf-8") as f:
@@ -221,8 +230,11 @@ class WriteJsonCommand(BaseCommand):
                 },
             }
 
-            # Write to file
-            output_path = Path(args[0]).expanduser()
+            # Write to file with location alias support
+            try:
+                output_path = resolve_path_with_aliases(args[0], context.config.locations)
+            except ValueError as e:
+                return CommandResult.error(str(e))
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(output_path, "w", encoding="utf-8") as f:
@@ -296,8 +308,11 @@ class WriteMarkdownCommand(BaseCommand):
                 md_content.append("---")
                 md_content.append("")
 
-            # Write to file
-            output_path = Path(args[0]).expanduser()
+            # Write to file with location alias support
+            try:
+                output_path = resolve_path_with_aliases(args[0], context.config.locations)
+            except ValueError as e:
+                return CommandResult.error(str(e))
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(output_path, "w", encoding="utf-8") as f:
@@ -362,7 +377,12 @@ class WriteResponseCommand(BaseCommand):
             last_user = user_messages[-1]
             last_assistant = assistant_messages[-1]
 
-            output_path = Path(args[0]).expanduser()
+            # Write to file with location alias support
+            try:
+                output_path = resolve_path_with_aliases(args[0], context.config.locations)
+            except ValueError as e:
+                return CommandResult.error(str(e))
+            
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             if format_type == "json":
@@ -410,3 +430,69 @@ class WriteResponseCommand(BaseCommand):
 
         except Exception as e:
             return CommandResult.error(f"Failed to save exchange: {e}")
+
+
+@command(
+    name="locations",
+    description="Show available location aliases",
+    usage="/locations",
+)
+class LocationsCommand(BaseCommand):
+    """Command to show configured location aliases."""
+
+    async def execute(self, args: List[str], context: Any) -> CommandResult:
+        """
+        Execute the locations command.
+
+        Parameters
+        ----------
+        args : List[str]
+            Command arguments (unused)
+        context : Any
+            Command execution context (ChatSession)
+
+        Returns
+        -------
+        CommandResult
+            Result of command execution
+        """
+        try:
+            locations = context.config.locations
+            
+            if not locations:
+                context.console.print(
+                    Panel(
+                        "No location aliases are configured.\n\n"
+                        "Add location aliases to your config file:\n\n"
+                        "locations:\n"
+                        "  conv: \"~/conversations/\"\n"
+                        "  docs: \"~/documents/\"",
+                        title="Location Aliases",
+                        border_style="blue",
+                    )
+                )
+                return CommandResult.success("No location aliases configured.")
+            
+            # Format the location aliases for display
+            alias_list = []
+            for alias, path in locations.items():
+                expanded_path = str(Path(path).expanduser())
+                alias_list.append(f"  {alias}: {path}")
+                if expanded_path != path:
+                    alias_list.append(f"      → {expanded_path}")
+            
+            alias_text = "\n".join(alias_list)
+            
+            context.console.print(
+                Panel(
+                    f"Available location aliases:\n\n{alias_text}\n\n"
+                    "Usage: alias:filename (e.g., conv:myfile.txt)",
+                    title="Location Aliases",
+                    border_style="blue",
+                )
+            )
+            
+            return CommandResult.success(f"Found {len(locations)} location alias(es).")
+            
+        except Exception as e:
+            return CommandResult.error(f"Failed to show location aliases: {e}")

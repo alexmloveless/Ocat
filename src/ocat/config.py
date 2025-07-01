@@ -22,6 +22,7 @@ from pydantic import (
 )
 
 from .exceptions import ConfigError
+from .utils import validate_location_aliases
 
 
 class ModelConfig(BaseModel):
@@ -295,6 +296,12 @@ class Config(BaseModel):
             config = cls(**config_data)
         except ValidationError as e:
             raise ConfigError(f"Configuration validation failed: {e}")
+        
+        # Validate location aliases if any are configured
+        if config.locations:
+            validation_error = validate_location_aliases(config.locations)
+            if validation_error:
+                raise ConfigError(f"Location alias validation failed: {validation_error}")
 
         # Override with environment variables (precedence: env > file > defaults)
         config._load_from_env()

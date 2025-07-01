@@ -487,7 +487,7 @@ class ChatSession:
         """
         from datetime import datetime
         import pytz
-        
+
         system_prompts = []
 
         # Load base prompt unless overridden
@@ -495,23 +495,25 @@ class ChatSession:
             try:
                 with open(base_prompt_file, "r") as f:
                     base_prompt_content = f.read()
-                
+
                 # Add current date and time to the base prompt
                 utc_now = datetime.now(pytz.UTC)
                 local_now = datetime.now()
-                
+
                 # Format timestamps for better readability
                 utc_timestamp = utc_now.strftime("%Y-%m-%d %H:%M:%S UTC")
                 local_timestamp = local_now.strftime("%Y-%m-%d %H:%M:%S %Z")
-                
+
                 # Add time context to the base prompt
                 time_context = f"\n\n## Current Session Information\n\nSession started at: {local_timestamp}\nUTC time: {utc_timestamp}\n"
-                
+
                 # Append time information to the base prompt
                 enhanced_base_prompt = base_prompt_content + time_context
                 system_prompts.append(enhanced_base_prompt)
-                
-                self.logger.debug(f"Loaded base prompt from: {base_prompt_file} with current timestamp")
+
+                self.logger.debug(
+                    f"Loaded base prompt from: {base_prompt_file} with current timestamp"
+                )
             except FileNotFoundError:
                 self.logger.warning(f"Base prompt file not found: {base_prompt_file}")
             except Exception as e:

@@ -46,6 +46,7 @@ logging:
 
 # Location aliases for commands
 # Define shortcuts for commonly used directories
-locations: {}
-  # conv: "~/conversations/"
-  # docs: "~/documents/"
+locations:
+  conv: "~/conversations/"
+  docs: "~/documents/"
+  tmp: "/tmp/ocat/"
