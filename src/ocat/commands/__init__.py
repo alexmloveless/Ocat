@@ -215,3 +215,4 @@ from . import history_commands
 from . import file_commands
 from . import vector_commands
 from . import context_commands
+from . import remember_command
