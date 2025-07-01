@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ocat"
-version = "0.2.0"
+version = "0.3.0"
 description = "A interactive LLM Chat CLI`"
 authors = ["Alex Loveless <alex@alexloveless.uk>"]
 license = "MIT"
