@@ -193,3 +193,45 @@ class TestBasePrompt:
         config = Config(**config_data)
         assert config.llm.base_prompt_file == "/custom/path/base_prompt.md"
         assert config.llm.override_base_prompt is True
+
+    def test_base_prompt_includes_timestamp(self):
+        """Test that base prompt includes current timestamp."""
+        # Create temporary base prompt file
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write("# Base Prompt\nThis is the base prompt content.")
+            base_prompt_path = f.name
+
+        try:
+            # Create config with custom base prompt file
+            config = Config()
+            config.llm.base_prompt_file = base_prompt_path
+            config.llm.system_prompt_files = []
+            config.llm.override_base_prompt = False
+
+            # Create mock chat session to test prompt loading
+            with patch("ocat.chat.create_backend"), patch(
+                "ocat.chat.ConversationVectorStore"
+            ):
+                chat = ChatSession(config, self.console, dummy_mode=True)
+
+                # Check that system message contains base prompt and timestamp
+                system_messages = [msg for msg in chat.messages if msg.role == "system"]
+                assert len(system_messages) == 1
+                content = system_messages[0].content
+                
+                # Check that original content is present
+                assert "This is the base prompt content" in content
+                
+                # Check that timestamp information is present
+                assert "Current Session Information" in content
+                assert "Session started at:" in content
+                assert "UTC time:" in content
+                
+                # Check timestamp format
+                import re
+                # Look for timestamp pattern (YYYY-MM-DD HH:MM:SS)
+                timestamp_pattern = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"
+                assert re.search(timestamp_pattern, content) is not None
+
+        finally:
+            os.unlink(base_prompt_path)

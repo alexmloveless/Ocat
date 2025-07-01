@@ -7,7 +7,8 @@ through an intuitive and user-friendly terminal interface.
 
 # Disable ChromaDB telemetry globally before any imports
 import os
-os.environ['ANONYMIZED_TELEMETRY'] = 'False'
+
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
 __version__ = "0.1.0"
 __author__ = "Alex Loveless"

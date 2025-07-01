@@ -90,7 +90,7 @@ def test_vector_store_stats(vector_store):
     assert stats["total_exchanges"] == 1
 
     # Verify all expected statistics are there
-    assert "index_size" in stats
+    assert "collection_count" in stats
 
 
 def test_get_exchange_by_id(vector_store):

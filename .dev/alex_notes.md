@@ -1,0 +1,6 @@
+- /remember functions
+- add global sysprompt
+- Arg to pump message payload to file 
+- User prompt prints twice
+- Limit chat window to n exchanges
+- Add time to base prompt
