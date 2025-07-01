@@ -118,15 +118,31 @@ class ChatSession:
         self.command_parser = CommandParser(config)
         self.logger.debug("Command parser initialized")
 
-        # Add system message if configured (from system prompt files)
-        if config.llm.system_prompt_files:
-            # Load and concatenate system prompt files
-            system_content = self._load_system_prompts(config.llm.system_prompt_files)
-            if system_content:
-                self.messages.append(Message(role="system", content=system_content))
-                self.logger.info(
-                    f"Loaded system prompt from {len(config.llm.system_prompt_files)} file(s)"
-                )
+        # Warn user if base prompt is overridden
+        if config.llm.override_base_prompt:
+            self.console.print(
+                "⚠️  Warning: Base prompt override is enabled. This may cause Ocat to behave unexpectedly.",
+                style="yellow",
+            )
+            self.logger.warning(
+                "Base prompt override enabled - may cause unexpected behavior"
+            )
+
+        # Load system prompts (base prompt + user-defined prompts)
+        system_content = self._load_system_prompts(
+            config.llm.base_prompt_file,
+            config.llm.system_prompt_files,
+            config.llm.override_base_prompt,
+        )
+        if system_content:
+            self.messages.append(Message(role="system", content=system_content))
+            prompt_count = len(config.llm.system_prompt_files)
+            base_prompt_info = (
+                "" if config.llm.override_base_prompt else " (including base prompt)"
+            )
+            self.logger.info(
+                f"Loaded system prompt from {prompt_count} user file(s){base_prompt_info}"
+            )
 
     async def process_message(self, user_input: str) -> None:
         """
@@ -449,14 +465,20 @@ class ChatSession:
                 )
         return []
 
-    def _load_system_prompts(self, prompt_files: List[str]) -> str:
+    def _load_system_prompts(
+        self, base_prompt_file: str, prompt_files: List[str], override_base_prompt: bool
+    ) -> str:
         """
-        Load and concatenate system prompt files.
+        Load and concatenate the base prompt and system prompt files.
 
         Parameters
         ----------
+        base_prompt_file : str
+            Path to the base prompt file
         prompt_files : List[str]
             List of file paths to load system prompts from
+        override_base_prompt : bool
+            Whether to ignore base prompt and use only user-defined prompts
 
         Returns
         -------
@@ -464,6 +486,24 @@ class ChatSession:
             Concatenated system prompt content
         """
         system_prompts = []
+
+        # Load base prompt unless overridden
+        if not override_base_prompt:
+            try:
+                with open(base_prompt_file, "r") as f:
+                    system_prompts.append(f.read())
+                self.logger.debug(f"Loaded base prompt from: {base_prompt_file}")
+            except FileNotFoundError:
+                self.logger.warning(f"Base prompt file not found: {base_prompt_file}")
+            except Exception as e:
+                self.logger.error(
+                    f"Error loading base prompt from {base_prompt_file}: {e}"
+                )
+                raise PromptError(
+                    f"Failed to load base prompt from {base_prompt_file}: {e}"
+                )
+
+        # Load user-defined system prompts
         for file_path in prompt_files:
             try:
                 with open(file_path, "r") as f:

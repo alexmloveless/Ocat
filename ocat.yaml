@@ -9,6 +9,8 @@ llm:
   max_tokens: 4000                   # Maximum tokens for responses
   system_prompt_files: []            # List of files containing system prompts to concatenate
     # - "/path/to/system/prompt/file.md"
+  base_prompt_file: ""               # Path to base prompt file (empty = use package default)
+  override_base_prompt: false        # Override base prompt (may cause unexpected behavior)
 
 # Vector Store Options (for Retrieval-Augmented Generation)
 vector_store:

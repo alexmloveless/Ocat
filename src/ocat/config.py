@@ -8,6 +8,8 @@ including LLM model settings, vector store, UI preferences, and more.
 import os
 import yaml
 from pathlib import Path
+
+from importlib.resources import files as resource_files
 from typing import Optional, Dict, Any, List
 from pydantic import (
     BaseModel,
@@ -16,6 +18,7 @@ from pydantic import (
     field_validator,
     computed_field,
     ValidationError,
+    model_validator,
 )
 
 from .exceptions import ConfigError
@@ -35,16 +38,45 @@ class ModelConfig(BaseModel):
         Maximum tokens for responses
     system_prompt_files : List[str]
         List of files containing system prompts to concatenate
+    base_prompt_file : str
+        Path to base prompt file that is prepended to system prompts
+    override_base_prompt : bool
+        Whether to override the default base prompt (warns user)
     """
 
     model: str = Field(default="gpt-4o-mini", description="LLM model name")
     temperature: float = Field(
-        default=1.0, ge=0.0, le=1.0, description="Response randomness (0.0-1.0)"
+        default=1.0, ge=0.0, le=2.0, description="Response randomness (0.0-2.0)"
     )
     max_tokens: int = Field(default=4000, gt=0, description="Maximum response tokens")
     system_prompt_files: List[str] = Field(
         default_factory=list, description="System prompt file paths"
     )
+    base_prompt_file: str = Field(
+        default="",  # Will be set to package default in post_init
+        description="Path to base prompt file (prepended to system prompts)",
+    )
+    override_base_prompt: bool = Field(
+        default=False,
+        description="Override base prompt (may cause unexpected behavior)",
+    )
+
+    @model_validator(mode="after")
+    def set_default_base_prompt_file(self):
+        """Set default base prompt file to package location if not specified."""
+        if not self.base_prompt_file:
+            try:
+                # Get the package resource path for the base prompt file
+                package_files = resource_files("ocat")
+                base_prompt_path = package_files / "base_prompt.md"
+                self.base_prompt_file = str(base_prompt_path)
+            except Exception:
+                # Fallback to relative path if package resources fail
+                import ocat
+
+                ocat_dir = Path(ocat.__file__).parent
+                self.base_prompt_file = str(ocat_dir / "base_prompt.md")
+        return self
 
 
 class VectorStoreConfig(BaseModel):
