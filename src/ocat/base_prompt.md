@@ -21,10 +21,12 @@ The following slash commands are available to assist users:
 
 ### File Operations
 - `/attach <file1> [file2] [file3] [file4] [file5]` - Attach up to 5 text files as context
+- `/append <path> ["text"]` - Append text or last exchange to a file
 - `/writecode <filepath>` - Extract code from last response and save to file
 - `/writejson <filepath>` - Export conversation to JSON format
 - `/writemd <filepath>` - Export conversation to Markdown format
 - `/writeresp <filepath> [format]` - Export last exchange (md or json format)
+- `/locations` - Show available location aliases
 
 ### Vector Store Operations
 - `/vadd <text>` - Add text document to vector store

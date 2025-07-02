@@ -53,10 +53,12 @@ class AttachCommand(BaseCommand):
             for file_path in args:
                 try:
                     # Resolve path with location aliases
-                    path = resolve_path_with_aliases(file_path, context.config.locations)
+                    path = resolve_path_with_aliases(
+                        file_path, context.config.locations
+                    )
                 except ValueError as e:
                     return CommandResult.error(str(e))
-                
+
                 try:
                     if not path.exists():
                         return CommandResult.error(f"File not found: {file_path}")
@@ -162,12 +164,14 @@ class WriteCodeCommand(BaseCommand):
             # Combine all code blocks
             combined_code = "\n\n".join(code_blocks)
 
-            # Write to file with location alias support
+            # Resolve path with location aliases
             try:
-                output_path = resolve_path_with_aliases(args[0], context.config.locations)
+                output_path = resolve_path_with_aliases(
+                    args[0], context.config.locations
+                )
             except ValueError as e:
-                return CommandResult.error(str(e))
-            
+                return CommandResult.error(f"Location alias error: {e}")
+
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(output_path, "w", encoding="utf-8") as f:
@@ -230,11 +234,13 @@ class WriteJsonCommand(BaseCommand):
                 },
             }
 
-            # Write to file with location alias support
+            # Resolve path with location aliases
             try:
-                output_path = resolve_path_with_aliases(args[0], context.config.locations)
+                output_path = resolve_path_with_aliases(
+                    args[0], context.config.locations
+                )
             except ValueError as e:
-                return CommandResult.error(str(e))
+                return CommandResult.error(f"Location alias error: {e}")
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(output_path, "w", encoding="utf-8") as f:
@@ -308,11 +314,13 @@ class WriteMarkdownCommand(BaseCommand):
                 md_content.append("---")
                 md_content.append("")
 
-            # Write to file with location alias support
+            # Resolve path with location aliases
             try:
-                output_path = resolve_path_with_aliases(args[0], context.config.locations)
+                output_path = resolve_path_with_aliases(
+                    args[0], context.config.locations
+                )
             except ValueError as e:
-                return CommandResult.error(str(e))
+                return CommandResult.error(f"Location alias error: {e}")
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(output_path, "w", encoding="utf-8") as f:
@@ -377,12 +385,14 @@ class WriteResponseCommand(BaseCommand):
             last_user = user_messages[-1]
             last_assistant = assistant_messages[-1]
 
-            # Write to file with location alias support
+            # Resolve path with location aliases
             try:
-                output_path = resolve_path_with_aliases(args[0], context.config.locations)
+                output_path = resolve_path_with_aliases(
+                    args[0], context.config.locations
+                )
             except ValueError as e:
-                return CommandResult.error(str(e))
-            
+                return CommandResult.error(f"Location alias error: {e}")
+
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             if format_type == "json":
@@ -433,6 +443,126 @@ class WriteResponseCommand(BaseCommand):
 
 
 @command(
+    name="append",
+    description="Append text or last exchange to a file",
+    usage='/append <path> ["text"]',
+)
+class AppendCommand(BaseCommand):
+    """Command to append text or last exchange to a file."""
+
+    async def execute(self, args: List[str], context: Any) -> CommandResult:
+        """
+        Execute the append command.
+
+        Parameters
+        ----------
+        args : List[str]
+            Command arguments - file path and optional text to append
+        context : Any
+            Command execution context (ChatSession)
+
+        Returns
+        -------
+        CommandResult
+            Result of command execution
+        """
+        # Step 3: Parse and validate arguments
+
+        # Require first arg - target path
+        if not args:
+            return CommandResult.error(
+                'No file path specified. Usage: /append <path> ["text"]'
+            )
+
+        target_path = args[0]
+        need_last_exchange = False
+        text_to_append: str = ""
+
+        # Treat remaining args as the string to append (join with space, strip surrounding quotes)
+        if len(args) > 1:
+            # Join remaining arguments with space
+            joined_text = " ".join(args[1:])
+            # Strip surrounding quotes if present
+            if (joined_text.startswith('"') and joined_text.endswith('"')) or (
+                joined_text.startswith("'") and joined_text.endswith("'")
+            ):
+                text_to_append = joined_text[1:-1]
+            else:
+                text_to_append = joined_text
+        else:
+            # If no second arg, flag that we need to fetch last exchange
+            need_last_exchange = True
+
+        try:
+            # Resolve path with location aliases
+            try:
+                file_path = resolve_path_with_aliases(
+                    target_path, context.config.locations
+                )
+            except ValueError as e:
+                return CommandResult.error(str(e))
+
+            # Determine what to append based on parsing results
+            if need_last_exchange:
+                # Append last exchange
+                user_messages = [msg for msg in context.messages if msg.role == "user"]
+                assistant_messages = [
+                    msg for msg in context.messages if msg.role == "assistant"
+                ]
+
+                if not user_messages or not assistant_messages:
+                    return CommandResult.error("No complete exchange found to append.")
+
+                last_user = user_messages[-1]
+                last_assistant = assistant_messages[-1]
+
+                # Format as markdown-style exchange
+                text_to_append = (
+                    f"\n## {context.config.display.user_label}\n\n"
+                    f"{last_user.content}\n\n"
+                    f"## {context.config.display.assistant_label}\n\n"
+                    f"{last_assistant.content}\n\n"
+                    "---\n"
+                )
+
+            # Create parent directory if it doesn't exist
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Check if file exists and doesn't end with newline
+            needs_newline = False
+            if file_path.exists() and file_path.stat().st_size > 0:
+                with open(file_path, "rb") as f:
+                    f.seek(-1, 2)  # Go to last byte
+                    last_byte = f.read(1)
+                    if last_byte != b"\n":
+                        needs_newline = True
+
+            # Append to file
+            with open(file_path, "a", encoding="utf-8") as f:
+                if needs_newline:
+                    f.write("\n")
+                f.write(text_to_append)
+                if not text_to_append.endswith("\n"):
+                    f.write("\n")
+
+            if len(args) > 1:
+                context.console.print(
+                    f"✅ Text appended to: {file_path}", style="green"
+                )
+                return CommandResult.success(f"Text appended to {file_path}")
+            else:
+                context.console.print(
+                    f"✅ Last exchange appended to: {file_path}", style="green"
+                )
+                return CommandResult.success(f"Last exchange appended to {file_path}")
+
+        except PermissionError:
+            return CommandResult.error(f"Permission denied writing to file: {args[0]}")
+        except Exception as e:
+            return CommandResult.error(f"Failed to append to file: {e}")
+
+
+@command(
     name="locations",
     description="Show available location aliases",
     usage="/locations",
@@ -458,21 +588,21 @@ class LocationsCommand(BaseCommand):
         """
         try:
             locations = context.config.locations
-            
+
             if not locations:
                 context.console.print(
                     Panel(
                         "No location aliases are configured.\n\n"
                         "Add location aliases to your config file:\n\n"
                         "locations:\n"
-                        "  conv: \"~/conversations/\"\n"
-                        "  docs: \"~/documents/\"",
+                        '  conv: "~/conversations/"\n'
+                        '  docs: "~/documents/"',
                         title="Location Aliases",
                         border_style="blue",
                     )
                 )
                 return CommandResult.success("No location aliases configured.")
-            
+
             # Format the location aliases for display
             alias_list = []
             for alias, path in locations.items():
@@ -480,9 +610,9 @@ class LocationsCommand(BaseCommand):
                 alias_list.append(f"  {alias}: {path}")
                 if expanded_path != path:
                     alias_list.append(f"      → {expanded_path}")
-            
+
             alias_text = "\n".join(alias_list)
-            
+
             context.console.print(
                 Panel(
                     f"Available location aliases:\n\n{alias_text}\n\n"
@@ -491,8 +621,8 @@ class LocationsCommand(BaseCommand):
                     border_style="blue",
                 )
             )
-            
+
             return CommandResult.success(f"Found {len(locations)} location alias(es).")
-            
+
         except Exception as e:
             return CommandResult.error(f"Failed to show location aliases: {e}")

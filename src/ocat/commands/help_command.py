@@ -41,7 +41,7 @@ class HelpCommand(BaseCommand):
         for name, cmd in commands.items():
             aliases = ", ".join(registry.get_aliases(name))
             help_text += f"/{name} ({aliases}) - {cmd.description}\n"
-        
+
         # Add location alias information if any are configured
         if context.config.locations:
             help_text += "\nLocation Aliases:\n"
@@ -50,7 +50,9 @@ class HelpCommand(BaseCommand):
                 help_text += f"  {alias}: {path}\n"
             help_text += "Use /locations to see all configured aliases.\n"
         else:
-            help_text += "\nNo location aliases configured. See /locations for more info.\n"
+            help_text += (
+                "\nNo location aliases configured. See /locations for more info.\n"
+            )
 
         # Display help
         context.console.print(help_text)
