@@ -37,6 +37,7 @@ display:
   exchange_delimiter: "─"            # Character(s) for exchange separation  
   exchange_delimiter_length: 60      # Length of exchange delimiter line
   high_contrast: true                # Use high contrast colors for accessibility
+  prompt_symbol: "🐱 > "                # Prompt symbol for chat input (customizable)
 
 # Logging Configuration
 logging:

@@ -160,6 +160,8 @@ class DisplayConfig(BaseModel):
         Length of exchange delimiter line
     high_contrast : bool
         Use high contrast colors for accessibility
+    prompt_symbol : str
+        Prompt symbol for chat input (configurable)
     """
 
     user_label: str = Field(default="User", description="Label for user input")
@@ -180,6 +182,9 @@ class DisplayConfig(BaseModel):
     )
     high_contrast: bool = Field(
         default=True, description="Use high contrast colors for accessibility"
+    )
+    prompt_symbol: str = Field(
+        default="🐱 > ", description="Prompt symbol for chat input (configurable from config)"
     )
 
 

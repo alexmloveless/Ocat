@@ -435,16 +435,26 @@ async def run_interactive_chat(
         Exit code (0 for success, 1 for error)
     """
     # Create prompt session with history and auto-suggest
+    # Terminal environments only recognize Enter (submit) and Ctrl+J (newline)
+    # See: https://github.com/prompt-toolkit/python-prompt-toolkit/issues/158
+    # Enter submits, Ctrl+J inserts a newline
+    # Multi-line paste is preserved and will submit the whole multi-line entry
     prompt_session: PromptSession = PromptSession(
-        history=InMemoryHistory(), auto_suggest=AutoSuggestFromHistory()
+        history=InMemoryHistory(),
+        auto_suggest=AutoSuggestFromHistory(),
+        multiline=True,
+        # No extra key_bindings for multiline; default is best
     )
+
+    # Show input info for multiline behaviour
+    console.print("[dim](Enter = newline  |  Esc+Enter or Ctrl+D = submit  |  Paste = multiline supported)[/dim]")
 
     # Main interactive loop
     while True:
         try:
             # Get user input
             user_input = await asyncio.to_thread(
-                prompt_session.prompt, "🐱 > ", multiline=False
+                prompt_session.prompt, config.display.prompt_symbol
             )
 
             # Handle empty input
