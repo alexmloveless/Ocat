@@ -590,12 +590,23 @@ class ChatSession:
                 self.logger.debug(
                     f"Added context from {len(context_exchanges)} exchanges"
                 )
+                
+                # Visual indicator that context is being used
+                self.console.print(
+                    f"🧠 Using context from {len(context_exchanges)} previous exchange(s)",
+                    style="dim cyan"
+                )
 
             final_messages.extend(conversation_messages)
 
             return final_messages
         elif context_exchanges and self.config.vector_store.enabled and not show_context:
             self.logger.debug("Context exchanges available but disabled via /showcontext command")
+            # Visual indicator that context is available but disabled
+            self.console.print(
+                f"💭 Context available ({len(context_exchanges)} exchanges) but disabled via /showcontext",
+                style="dim yellow"
+            )
 
         return api_messages
 
