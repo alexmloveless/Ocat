@@ -228,11 +228,40 @@ class ChatSession:
         LLMError
             If the LLM API call fails
         """
-        # Get recent conversation for context query
-        recent_messages = self.messages[-self.config.vector_store.chat_window :]
-        query_text = " ".join(
-            [msg.content for msg in recent_messages if msg.role == "user"]
-        )
+        # Get recent conversation for context search query
+        # Include last n exchanges (both user and assistant) for better context matching
+        search_window = self.config.vector_store.search_context_window
+        recent_exchanges = []
+        
+        # Get the last n complete exchanges (user + assistant pairs)
+        messages_for_search = [msg for msg in self.messages if msg.role in ["user", "assistant"]]
+        if len(messages_for_search) >= 2:
+            # Take the last search_context_window * 2 messages to get complete exchanges
+            recent_exchanges = messages_for_search[-(search_window * 2):]
+        elif messages_for_search:
+            # If we have fewer messages, take what we have
+            recent_exchanges = messages_for_search
+        
+        # Create enhanced query text including conversation flow
+        if recent_exchanges:
+            query_parts = []
+            for i in range(0, len(recent_exchanges), 2):
+                if i + 1 < len(recent_exchanges):
+                    # Complete exchange (user + assistant)
+                    user_msg = recent_exchanges[i].content
+                    assistant_msg = recent_exchanges[i + 1].content
+                    query_parts.append(f"User: {user_msg}")
+                    query_parts.append(f"Assistant: {assistant_msg}")
+                else:
+                    # Incomplete exchange (just user message)
+                    query_parts.append(f"User: {recent_exchanges[i].content}")
+            
+            query_text = " ".join(query_parts)
+        else:
+            # Fallback to empty query if no recent messages
+            query_text = ""
+        
+        self.logger.debug(f"Context search query includes {len(recent_exchanges)} recent messages")
 
         # Retrieve similar exchanges for context if vector store is enabled
         context_exchanges = await self._retrieve_context(query_text)
