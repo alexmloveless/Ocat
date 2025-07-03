@@ -556,7 +556,9 @@ class ChatSession:
         api_messages = self.get_conversation_history()
 
         # If we have context exchanges, inject them before the current conversation
-        if context_exchanges and self.config.vector_store.enabled:
+        # Also check if context display is enabled via the showcontext command
+        show_context = getattr(self, "show_context", True)  # Default to True
+        if context_exchanges and self.config.vector_store.enabled and show_context:
             # Create a context message with relevant exchanges
             context_content = (
                 "Here are some relevant previous conversations for context:\n\n"
@@ -592,6 +594,8 @@ class ChatSession:
             final_messages.extend(conversation_messages)
 
             return final_messages
+        elif context_exchanges and self.config.vector_store.enabled and not show_context:
+            self.logger.debug("Context exchanges available but disabled via /showcontext command")
 
         return api_messages
 
