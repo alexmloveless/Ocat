@@ -591,11 +591,26 @@ class ChatSession:
                     f"Added context from {len(context_exchanges)} exchanges"
                 )
                 
-                # Visual indicator that context is being used
+                # Visual indicator that context is being used with excerpts
                 self.console.print(
-                    f"🧠 Using context from {len(context_exchanges)} previous exchange(s)",
+                    f"🧠 Using context from {len(context_exchanges)} previous exchange(s):",
                     style="dim cyan"
                 )
+                
+                # Show excerpts from each context exchange
+                for i, exchange in enumerate(context_exchanges[: self.config.vector_store.context_results], 1):
+                    # Truncate long exchanges for display
+                    user_excerpt = exchange.user_prompt[:60] + "..." if len(exchange.user_prompt) > 60 else exchange.user_prompt
+                    assistant_excerpt = exchange.assistant_response[:80] + "..." if len(exchange.assistant_response) > 80 else exchange.assistant_response
+                    
+                    self.console.print(
+                        f"   {i}. User: {user_excerpt}",
+                        style="dim blue"
+                    )
+                    self.console.print(
+                        f"      Assistant: {assistant_excerpt}",
+                        style="dim green"
+                    )
 
             final_messages.extend(conversation_messages)
 
@@ -604,9 +619,20 @@ class ChatSession:
             self.logger.debug("Context exchanges available but disabled via /showcontext command")
             # Visual indicator that context is available but disabled
             self.console.print(
-                f"💭 Context available ({len(context_exchanges)} exchanges) but disabled via /showcontext",
+                f"💭 Context available ({len(context_exchanges)} exchanges) but disabled via /showcontext:",
                 style="dim yellow"
             )
+            
+            # Show what context would have been used
+            for i, exchange in enumerate(context_exchanges[: min(3, len(context_exchanges))], 1):
+                user_excerpt = exchange.user_prompt[:50] + "..." if len(exchange.user_prompt) > 50 else exchange.user_prompt
+                self.console.print(
+                    f"   {i}. {user_excerpt}",
+                    style="dim yellow"
+                )
+            
+            if len(context_exchanges) > 3:
+                self.console.print(f"   ... and {len(context_exchanges) - 3} more", style="dim yellow")
 
         return api_messages
 
