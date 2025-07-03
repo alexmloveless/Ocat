@@ -64,7 +64,7 @@ class VectorAddCommand(BaseCommand):
                 f"✅ Text added to vector store with ID: {exchange_id}", style="green"
             )
 
-            return CommandResult.success(
+            return CommandResult.ok(
                 f"Added text to vector store with ID: {exchange_id}"
             )
 
@@ -118,7 +118,7 @@ class VectorDeleteCommand(BaseCommand):
                 context.console.print(
                     f"✅ Deleted exchange with ID: {exchange_id}", style="green"
                 )
-                return CommandResult.success(f"Deleted exchange: {exchange_id}")
+                return CommandResult.ok(f"Deleted exchange: {exchange_id}")
             else:
                 return CommandResult.error(
                     f"Exchange with ID '{exchange_id}' not found."
@@ -183,7 +183,7 @@ class VectorGetCommand(BaseCommand):
                 )
                 context.console.print(exchange_panel)
 
-                return CommandResult.success(f"Retrieved exchange: {exchange_id}")
+                return CommandResult.ok(f"Retrieved exchange: {exchange_id}")
             else:
                 return CommandResult.error(
                     f"Exchange with ID '{exchange_id}' not found."
@@ -244,7 +244,7 @@ class VectorQueryCommand(BaseCommand):
             )
 
             if not similar_exchanges:
-                return CommandResult.success("No similar exchanges found.")
+                return CommandResult.ok("No similar exchanges found.")
 
             # Display results
             results_table = Table(
@@ -274,7 +274,7 @@ class VectorQueryCommand(BaseCommand):
             context.console.print(results_table)
             context.console.print()
 
-            return CommandResult.success(
+            return CommandResult.ok(
                 f"Found {len(similar_exchanges)} similar exchanges."
             )
 
@@ -378,7 +378,7 @@ class VectorStatsCommand(BaseCommand):
 
                 context.console.print(recent_table)
 
-            return CommandResult.success("Vector store statistics displayed.")
+            return CommandResult.ok("Vector store statistics displayed.")
 
         except Exception as e:
             return CommandResult.error(f"Failed to get vector store statistics: {e}")

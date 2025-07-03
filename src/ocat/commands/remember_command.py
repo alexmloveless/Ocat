@@ -93,7 +93,7 @@ class RememberCommand(BaseCommand):
             )
             context.console.print(f"   Stored with ID: {exchange_id}", style="dim")
 
-            return CommandResult.success(
+            return CommandResult.ok(
                 f"Stored {remember_type} information with ID: {exchange_id}"
             )
 

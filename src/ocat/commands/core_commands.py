@@ -73,7 +73,7 @@ class ClearCommand(BaseCommand):
             if hasattr(context, "show_welcome"):
                 context.show_welcome()
 
-            return CommandResult.success("Conversation history cleared.")
+            return CommandResult.ok("Conversation history cleared.")
 
         except Exception as e:
             return CommandResult.error(f"Failed to clear history: {e}")
@@ -145,7 +145,7 @@ class ConfigCommand(BaseCommand):
             context.console.print(config_table)
             context.console.print()
 
-            return CommandResult.success("Configuration displayed.")
+            return CommandResult.ok("Configuration displayed.")
 
         except Exception as e:
             return CommandResult.error(f"Failed to display configuration: {e}")

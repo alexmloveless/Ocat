@@ -41,7 +41,7 @@ class HistoryCommand(BaseCommand):
             user_messages = [msg for msg in history if msg["role"] != "system"]
 
             if not user_messages:
-                return CommandResult.success("No conversation history available.")
+                return CommandResult.ok("No conversation history available.")
 
             # Parse number of messages to show
             num_messages = len(user_messages)
@@ -74,9 +74,7 @@ class HistoryCommand(BaseCommand):
             context.console.print(history_table)
             context.console.print()
 
-            return CommandResult.success(
-                f"Displayed {num_messages} messages from history."
-            )
+            return CommandResult.ok(f"Displayed {num_messages} messages from history.")
 
         except Exception as e:
             return CommandResult.error(f"Failed to display history: {e}")
@@ -137,7 +135,7 @@ class DeleteCommand(BaseCommand):
             # Reconstruct message list with system messages
             context.messages = system_messages + remaining_messages
 
-            return CommandResult.success(
+            return CommandResult.ok(
                 f"Deleted {num_exchanges} exchange(s) from conversation history."
             )
 
@@ -169,7 +167,7 @@ class ModelCommand(BaseCommand):
             # Show current model
             current_model = context.config.llm.model
             context.console.print(f"Current model: {current_model}")
-            return CommandResult.success("Current model displayed.")
+            return CommandResult.ok("Current model displayed.")
 
         try:
             new_model = args[0]
@@ -189,7 +187,7 @@ class ModelCommand(BaseCommand):
                 f"✅ Model changed from '{old_model}' to '{new_model}'", style="green"
             )
 
-            return CommandResult.success(f"Model changed to {new_model}.")
+            return CommandResult.ok(f"Model changed to {new_model}.")
 
         except Exception as e:
             return CommandResult.error(f"Failed to change model: {e}")
@@ -220,7 +218,7 @@ class ShowSystemCommand(BaseCommand):
             system_messages = [msg for msg in context.messages if msg.role == "system"]
 
             if not system_messages:
-                return CommandResult.success("No system prompt configured.")
+                return CommandResult.ok("No system prompt configured.")
 
             # Display system prompt(s)
             for i, msg in enumerate(system_messages):
@@ -237,7 +235,7 @@ class ShowSystemCommand(BaseCommand):
                 context.console.print(panel)
                 context.console.print()
 
-            return CommandResult.success("System prompt displayed.")
+            return CommandResult.ok("System prompt displayed.")
 
         except Exception as e:
             return CommandResult.error(f"Failed to display system prompt: {e}")
@@ -269,7 +267,7 @@ class LogLevelCommand(BaseCommand):
             current_level = context.config.logging.level
             context.console.print(f"Current log level: {current_level}")
             context.console.print(f"Valid levels: {', '.join(valid_levels)}")
-            return CommandResult.success("Current log level displayed.")
+            return CommandResult.ok("Current log level displayed.")
 
         try:
             new_level = args[0].upper()
@@ -295,7 +293,7 @@ class LogLevelCommand(BaseCommand):
                 style="green",
             )
 
-            return CommandResult.success(f"Log level changed to {new_level}.")
+            return CommandResult.ok(f"Log level changed to {new_level}.")
 
         except Exception as e:
             return CommandResult.error(f"Failed to change log level: {e}")

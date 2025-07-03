@@ -178,9 +178,6 @@ class ChatSession:
         self.messages.append(user_message)
         self.logger.debug(f"User message added to conversation history")
 
-        # Display user message
-        self._display_message(user_message)
-
         try:
             # Generate response from LLM
             self.logger.debug("Generating assistant response")

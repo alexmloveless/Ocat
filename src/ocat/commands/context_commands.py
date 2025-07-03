@@ -42,7 +42,7 @@ class ShowContextCommand(BaseCommand):
                 # Show current state
                 current_state = "on" if context.show_context else "off"
                 context.console.print(f"Context display is currently: {current_state}")
-                return CommandResult.success(f"Context display is {current_state}")
+                return CommandResult.ok(f"Context display is {current_state}")
 
             # Parse the toggle argument
             toggle_arg = args[0].lower()
@@ -50,11 +50,11 @@ class ShowContextCommand(BaseCommand):
             if toggle_arg == "on":
                 context.show_context = True
                 context.console.print("✅ Context display enabled", style="green")
-                return CommandResult.success("Context display enabled")
+                return CommandResult.ok("Context display enabled")
             elif toggle_arg == "off":
                 context.show_context = False
                 context.console.print("✅ Context display disabled", style="green")
-                return CommandResult.success("Context display disabled")
+                return CommandResult.ok("Context display disabled")
             else:
                 return CommandResult.error(
                     "Invalid argument. Use 'on' or 'off', or no argument to check current state."

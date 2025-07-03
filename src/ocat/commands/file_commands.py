@@ -107,7 +107,7 @@ class AttachCommand(BaseCommand):
                 )
             )
 
-            return CommandResult.success(
+            return CommandResult.ok(
                 f"Attached {len(attached_files)} file(s) to conversation."
             )
 
@@ -181,7 +181,7 @@ class WriteCodeCommand(BaseCommand):
                 f"✅ Code extracted and saved to: {output_path}", style="green"
             )
 
-            return CommandResult.success(f"Code saved to {output_path}")
+            return CommandResult.ok(f"Code saved to {output_path}")
 
         except Exception as e:
             return CommandResult.error(f"Failed to extract code: {e}")
@@ -250,7 +250,7 @@ class WriteJsonCommand(BaseCommand):
                 f"✅ Conversation exported to: {output_path}", style="green"
             )
 
-            return CommandResult.success(f"Conversation exported to {output_path}")
+            return CommandResult.ok(f"Conversation exported to {output_path}")
 
         except Exception as e:
             return CommandResult.error(f"Failed to export conversation: {e}")
@@ -330,7 +330,7 @@ class WriteMarkdownCommand(BaseCommand):
                 f"✅ Conversation exported to: {output_path}", style="green"
             )
 
-            return CommandResult.success(f"Conversation exported to {output_path}")
+            return CommandResult.ok(f"Conversation exported to {output_path}")
 
         except Exception as e:
             return CommandResult.error(f"Failed to export conversation: {e}")
@@ -436,7 +436,7 @@ class WriteResponseCommand(BaseCommand):
                 f"✅ Last exchange saved to: {output_path}", style="green"
             )
 
-            return CommandResult.success(f"Last exchange saved to {output_path}")
+            return CommandResult.ok(f"Last exchange saved to {output_path}")
 
         except Exception as e:
             return CommandResult.error(f"Failed to save exchange: {e}")
@@ -549,12 +549,12 @@ class AppendCommand(BaseCommand):
                 context.console.print(
                     f"✅ Text appended to: {file_path}", style="green"
                 )
-                return CommandResult.success(f"Text appended to {file_path}")
+                return CommandResult.ok(f"Text appended to {file_path}")
             else:
                 context.console.print(
                     f"✅ Last exchange appended to: {file_path}", style="green"
                 )
-                return CommandResult.success(f"Last exchange appended to {file_path}")
+                return CommandResult.ok(f"Last exchange appended to {file_path}")
 
         except PermissionError:
             return CommandResult.error(f"Permission denied writing to file: {args[0]}")
@@ -601,7 +601,7 @@ class LocationsCommand(BaseCommand):
                         border_style="blue",
                     )
                 )
-                return CommandResult.success("No location aliases configured.")
+                return CommandResult.ok("No location aliases configured.")
 
             # Format the location aliases for display
             alias_list = []
@@ -622,7 +622,7 @@ class LocationsCommand(BaseCommand):
                 )
             )
 
-            return CommandResult.success(f"Found {len(locations)} location alias(es).")
+            return CommandResult.ok(f"Found {len(locations)} location alias(es).")
 
         except Exception as e:
             return CommandResult.error(f"Failed to show location aliases: {e}")

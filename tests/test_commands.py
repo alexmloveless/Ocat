@@ -31,7 +31,7 @@ class TestCmdCommand(BaseCommand):
     async def execute(self, args, context):
         if args and args[0] == "error":
             return CommandResult.error("Test error")
-        return CommandResult.success(f"Test successful with args: {args}")
+        return CommandResult.ok(f"Test successful with args: {args}")
 
 
 @pytest.fixture
@@ -169,7 +169,7 @@ class TestCommandResult:
 
     def test_success_result(self):
         """Test creating success result."""
-        result = CommandResult.success("Success message", {"data": "value"})
+        result = CommandResult.ok("Success message", {"data": "value"})
 
         assert result.success
         assert result.message == "Success message"

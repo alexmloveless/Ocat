@@ -184,7 +184,8 @@ class DisplayConfig(BaseModel):
         default=True, description="Use high contrast colors for accessibility"
     )
     prompt_symbol: str = Field(
-        default="🐱 > ", description="Prompt symbol for chat input (configurable from config)"
+        default="🐱 > ",
+        description="Prompt symbol for chat input (configurable from config)",
     )
 
 

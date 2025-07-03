@@ -37,7 +37,7 @@ class CommandResult:
         self.data: Any = data
 
     @classmethod
-    def success(cls, message: str = "", data: Any = None) -> "CommandResult":
+    def ok(cls, message: str = "", data: Any = None) -> "CommandResult":
         """Create a successful command result."""
         return cls(success=True, message=message, data=data)
 
@@ -216,3 +216,4 @@ from . import file_commands
 from . import vector_commands
 from . import context_commands
 from . import remember_command
+from . import clipboard_commands

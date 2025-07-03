@@ -447,7 +447,9 @@ async def run_interactive_chat(
     )
 
     # Show input info for multiline behaviour
-    console.print("[dim](Enter = newline  |  Esc+Enter or Ctrl+D = submit  |  Paste = multiline supported)[/dim]")
+    console.print(
+        "[dim](Enter = newline  |  Esc+Enter or Ctrl+D = submit  |  Paste = multiline supported)[/dim]"
+    )
 
     # Main interactive loop
     while True:

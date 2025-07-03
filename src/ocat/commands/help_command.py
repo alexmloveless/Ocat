@@ -57,4 +57,4 @@ class HelpCommand(BaseCommand):
         # Display help
         context.console.print(help_text)
 
-        return CommandResult.success(message="Help displayed successfully.")
+        return CommandResult.ok(message="Help displayed successfully.")
