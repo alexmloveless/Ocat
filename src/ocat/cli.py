@@ -26,6 +26,7 @@ from rich.text import Text
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.key_binding import KeyBindings
 
 from . import __version__
 from .chat import ChatSession
@@ -434,21 +435,55 @@ async def run_interactive_chat(
     int
         Exit code (0 for success, 1 for error)
     """
-    # Create prompt session with history and auto-suggest
-    # Terminal environments only recognize Enter (submit) and Ctrl+J (newline)
-    # See: https://github.com/prompt-toolkit/python-prompt-toolkit/issues/158
-    # Enter submits, Ctrl+J inserts a newline
-    # Multi-line paste is preserved and will submit the whole multi-line entry
+    # Create custom key bindings for intuitive chat input
+    # Enter = submit, various alternatives for newline
+    bindings = KeyBindings()
+
+    @bindings.add('enter')
+    def _(event):
+        """Submit the input when Enter is pressed."""
+        event.app.exit(result=event.app.current_buffer.text)
+
+    @bindings.add('c-j')  # Ctrl+J for newline (traditional)
+    def _(event):
+        """Insert newline when Ctrl+J is pressed."""
+        event.current_buffer.insert_text('\n')
+        
+    @bindings.add('escape', 'enter')  # Alt+Enter (Esc+Enter sequence) 
+    def _(event):
+        """Insert newline when Alt+Enter is pressed."""
+        event.current_buffer.insert_text('\n')
+
+    # Try to add Shift+Enter support (may not work in all terminals)
+    try:
+        @bindings.add('<Shift-Enter>')  # Try the literal Shift+Enter format
+        def _(event):
+            """Insert newline when Shift+Enter is pressed."""
+            event.current_buffer.insert_text('\n')
+    except:
+        # Shift+Enter not supported in this terminal/environment
+        pass
+
+    @bindings.add('c-d')  # Ctrl+D (EOF)
+    def _(event):
+        """Submit on Ctrl+D for compatibility."""
+        if event.app.current_buffer.text.strip():
+            event.app.exit(result=event.app.current_buffer.text)
+        else:
+            # Empty input + Ctrl+D = exit application
+            raise EOFError()
+
+    # Create prompt session with custom key bindings
     prompt_session: PromptSession = PromptSession(
         history=InMemoryHistory(),
         auto_suggest=AutoSuggestFromHistory(),
         multiline=True,
-        # No extra key_bindings for multiline; default is best
+        key_bindings=bindings,
     )
 
-    # Show input info for multiline behaviour
+    # Show updated input info
     console.print(
-        "[dim](Enter = newline  |  Esc+Enter or Ctrl+D = submit  |  Paste = multiline supported)[/dim]"
+        "[dim](Enter = submit  |  Shift+Enter, Ctrl+J, or Alt+Enter = newline  |  Ctrl+D = submit/exit)[/dim]"
     )
 
     # Main interactive loop
