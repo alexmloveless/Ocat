@@ -586,7 +586,7 @@ class ChatSession:
 
         # If we have context exchanges, inject them before the current conversation
         # Also check if context display is enabled via the showcontext command
-        show_context = getattr(self, "show_context", True)  # Default to True
+        show_context = getattr(self, "show_context", False)  # Default to False
         if context_exchanges and self.config.vector_store.enabled and show_context:
             # Create a context message with relevant exchanges
             context_content = (

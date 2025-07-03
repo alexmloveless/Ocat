@@ -36,7 +36,7 @@ class ShowContextCommand(BaseCommand):
         try:
             # Initialize show_context attribute if it doesn't exist
             if not hasattr(context, "show_context"):
-                context.show_context = True  # Default to enabled
+                context.show_context = False  # Default to disabled
 
             if not args:
                 # Show current state
