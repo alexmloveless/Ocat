@@ -232,16 +232,18 @@ class ChatSession:
         # Include last n exchanges (both user and assistant) for better context matching
         search_window = self.config.vector_store.search_context_window
         recent_exchanges = []
-        
+
         # Get the last n complete exchanges (user + assistant pairs)
-        messages_for_search = [msg for msg in self.messages if msg.role in ["user", "assistant"]]
+        messages_for_search = [
+            msg for msg in self.messages if msg.role in ["user", "assistant"]
+        ]
         if len(messages_for_search) >= 2:
             # Take the last search_context_window * 2 messages to get complete exchanges
-            recent_exchanges = messages_for_search[-(search_window * 2):]
+            recent_exchanges = messages_for_search[-(search_window * 2) :]
         elif messages_for_search:
             # If we have fewer messages, take what we have
             recent_exchanges = messages_for_search
-        
+
         # Create enhanced query text including conversation flow
         if recent_exchanges:
             query_parts = []
@@ -255,13 +257,15 @@ class ChatSession:
                 else:
                     # Incomplete exchange (just user message)
                     query_parts.append(f"User: {recent_exchanges[i].content}")
-            
+
             query_text = " ".join(query_parts)
         else:
             # Fallback to empty query if no recent messages
             query_text = ""
-        
-        self.logger.debug(f"Context search query includes {len(recent_exchanges)} recent messages")
+
+        self.logger.debug(
+            f"Context search query includes {len(recent_exchanges)} recent messages"
+        )
 
         # Retrieve similar exchanges for context if vector store is enabled
         context_exchanges = await self._retrieve_context(query_text)
@@ -585,9 +589,13 @@ class ChatSession:
         api_messages = self.get_conversation_history()
 
         # If we have context exchanges, inject them before the current conversation
-        # Also check if context display is enabled via the showcontext command
-        show_context = getattr(self, "show_context", False)  # Default to False
-        if context_exchanges and self.config.vector_store.enabled and show_context:
+        # Check the context display mode via the showcontext command
+        context_mode = getattr(self, "context_mode", "off")  # Default to off
+        if (
+            context_exchanges
+            and self.config.vector_store.enabled
+            and context_mode == "on"
+        ):
             # Create a context message with relevant exchanges
             context_content = (
                 "Here are some relevant previous conversations for context:\n\n"
@@ -619,49 +627,93 @@ class ChatSession:
                 self.logger.debug(
                     f"Added context from {len(context_exchanges)} exchanges"
                 )
-                
+
                 # Visual indicator that context is being used with excerpts
                 self.console.print(
                     f"🧠 Using context from {len(context_exchanges)} previous exchange(s):",
-                    style="dim cyan"
+                    style="dim cyan",
                 )
-                
+
                 # Show excerpts from each context exchange
-                for i, exchange in enumerate(context_exchanges[: self.config.vector_store.context_results], 1):
+                for i, exchange in enumerate(
+                    context_exchanges[: self.config.vector_store.context_results], 1
+                ):
                     # Truncate long exchanges for display
-                    user_excerpt = exchange.user_prompt[:60] + "..." if len(exchange.user_prompt) > 60 else exchange.user_prompt
-                    assistant_excerpt = exchange.assistant_response[:80] + "..." if len(exchange.assistant_response) > 80 else exchange.assistant_response
-                    
+                    user_excerpt = (
+                        exchange.user_prompt[:60] + "..."
+                        if len(exchange.user_prompt) > 60
+                        else exchange.user_prompt
+                    )
+                    assistant_excerpt = (
+                        exchange.assistant_response[:80] + "..."
+                        if len(exchange.assistant_response) > 80
+                        else exchange.assistant_response
+                    )
+
                     self.console.print(
-                        f"   {i}. User: {user_excerpt}",
-                        style="dim blue"
+                        f"   {i}. User: {user_excerpt}", style="dim blue"
                     )
                     self.console.print(
-                        f"      Assistant: {assistant_excerpt}",
-                        style="dim green"
+                        f"      Assistant: {assistant_excerpt}", style="dim green"
                     )
 
             final_messages.extend(conversation_messages)
 
             return final_messages
-        elif context_exchanges and self.config.vector_store.enabled and not show_context:
-            self.logger.debug("Context exchanges available but disabled via /showcontext command")
-            # Visual indicator that context is available but disabled
-            self.console.print(
-                f"💭 Context available ({len(context_exchanges)} exchanges) but disabled via /showcontext:",
-                style="dim yellow"
+        elif (
+            context_exchanges
+            and self.config.vector_store.enabled
+            and context_mode == "summary"
+        ):
+            self.logger.debug("Context exchanges available, showing summary mode")
+            # Count total words in context
+            total_words = sum(
+                len(exchange.user_prompt.split())
+                + len(exchange.assistant_response.split())
+                for exchange in context_exchanges
             )
-            
-            # Show what context would have been used
-            for i, exchange in enumerate(context_exchanges[: min(3, len(context_exchanges))], 1):
-                user_excerpt = exchange.user_prompt[:50] + "..." if len(exchange.user_prompt) > 50 else exchange.user_prompt
-                self.console.print(
-                    f"   {i}. {user_excerpt}",
-                    style="dim yellow"
+
+            # Visual indicator for summary mode
+            self.console.print(
+                f"💭 {len(context_exchanges)} context items included, totalling {total_words} words",
+                style="dim cyan",
+            )
+
+            # Create context message for the LLM (same as 'on' mode)
+            context_content = (
+                "Here are some relevant previous conversations for context:\n\n"
+            )
+
+            for i, exchange in enumerate(
+                context_exchanges[: self.config.vector_store.context_results]
+            ):
+                context_content += f"Context {i+1}:\n"
+                context_content += f"User: {exchange.user_prompt}\n"
+                context_content += f"Assistant: {exchange.assistant_response}\n\n"
+
+            context_content += (
+                "Please use this context to inform your response when relevant.\n"
+            )
+
+            # Insert context after system messages but before conversation
+            system_messages = [msg for msg in api_messages if msg["role"] == "system"]
+            conversation_messages = [
+                msg for msg in api_messages if msg["role"] != "system"
+            ]
+
+            # Build final message list
+            final_messages = system_messages
+
+            # Add context message if we have context
+            if context_exchanges:
+                final_messages.append({"role": "system", "content": context_content})
+                self.logger.debug(
+                    f"Added context from {len(context_exchanges)} exchanges"
                 )
-            
-            if len(context_exchanges) > 3:
-                self.console.print(f"   ... and {len(context_exchanges) - 3} more", style="dim yellow")
+
+            final_messages.extend(conversation_messages)
+
+            return final_messages
 
         return api_messages
 
