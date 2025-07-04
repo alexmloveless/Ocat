@@ -2,7 +2,7 @@
 - [ ] support for filesystem commands e.g. pwd
 - [ ] vim bindings
 - [ ] cross-session up-arrow history
-- [ ] user prompt is repeated
+- [x] user prompt is repeated
 - [ ] response to paste buffer
 - [ ] check if filename is in vector chunk metadata
-- [ ] multi-line prompts and shift-enter
+- [x] multi-line prompts and shift-enter

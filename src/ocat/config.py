@@ -114,7 +114,9 @@ class VectorStoreConfig(BaseModel):
         default=5, gt=0, description="Number of context results to return"
     )
     search_context_window: int = Field(
-        default=3, gt=0, description="Number of recent exchanges to include in context search query"
+        default=3,
+        gt=0,
+        description="Number of recent exchanges to include in context search query",
     )
 
 

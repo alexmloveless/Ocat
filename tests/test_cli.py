@@ -91,7 +91,6 @@ def test_main_with_config_override(mock_config_load):
     with patch("ocat.cli.ChatSession"), patch(
         "ocat.cli.PromptSession"
     ) as mock_prompt_session, patch("ocat.cli.Console"):
-
         mock_prompt = Mock()
         mock_prompt_session.return_value = mock_prompt
         mock_prompt.prompt.return_value = "exit"
