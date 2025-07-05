@@ -5,7 +5,6 @@ Implements commands for managing the conversation vector store.
 """
 
 from typing import List, Any
-import json
 from rich.table import Table
 from rich.panel import Panel
 
@@ -130,11 +129,11 @@ class VectorDeleteCommand(BaseCommand):
 
 @command(
     name="vget",
-    description="Retrieve a specific exchange by ID",
-    usage="/vget <id>",
+    description="Retrieve a specific exchange by ID, or all exchanges by session/thread ID",
+    usage="/vget <id> | /vget session <session_id> | /vget thread <thread_id>",
 )
 class VectorGetCommand(BaseCommand):
-    """Command to retrieve and display a specific exchange by ID."""
+    """Command to retrieve and display a specific exchange by ID, or all exchanges by session/thread ID."""
 
     async def execute(self, args: List[str], context: Any) -> CommandResult:
         """
@@ -143,7 +142,7 @@ class VectorGetCommand(BaseCommand):
         Parameters
         ----------
         args : List[str]
-            Command arguments - exchange ID to retrieve
+            Command arguments - exchange ID to retrieve, or session/thread type and ID
         context : Any
             Command execution context (ChatSession)
 
@@ -153,7 +152,7 @@ class VectorGetCommand(BaseCommand):
             Result of command execution
         """
         if not args:
-            return CommandResult.error("No ID specified. Usage: /vget <id>")
+            return CommandResult.error("No ID specified. Usage: /vget <id> | /vget session <session_id> | /vget thread <thread_id>")
 
         try:
             # Check if vector store is enabled
@@ -165,29 +164,60 @@ class VectorGetCommand(BaseCommand):
             if not hasattr(context, "vector_store") or context.vector_store is None:
                 return CommandResult.error("Vector store is not initialized.")
 
-            exchange_id = args[0]
-
-            # Try to retrieve from vector store
-            exchange = context.vector_store.get_exchange_by_id(exchange_id)
-
-            if exchange:
-                # Display the exchange
-                exchange_panel = Panel(
-                    f"**Exchange ID:** {exchange.exchange_id}\n"
-                    f"**Thread ID:** {exchange.thread_id}\n"
-                    f"**Session ID:** {exchange.session_id}\n\n"
-                    f"**User:** {exchange.user_prompt}\n\n"
-                    f"**Assistant:** {exchange.assistant_response}",
-                    title=f"Exchange: {exchange_id}",
-                    border_style="blue",
-                )
-                context.console.print(exchange_panel)
-
-                return CommandResult.ok(f"Retrieved exchange: {exchange_id}")
+            # Check if this is a session or thread query
+            if len(args) >= 2 and args[0].lower() in ["session", "thread"]:
+                query_type = args[0].lower()
+                query_id = args[1]
+                
+                if query_type == "session":
+                    exchanges = context.vector_store.get_exchanges_by_session_id(query_id)
+                    title = f"Session: {query_id}"
+                else:  # thread
+                    exchanges = context.vector_store.get_exchanges_by_thread_id(query_id)
+                    title = f"Thread: {query_id}"
+                
+                if not exchanges:
+                    return CommandResult.error(f"No exchanges found for {query_type} ID '{query_id}'.")
+                
+                # Display all exchanges for the session/thread
+                for i, exchange in enumerate(exchanges):
+                    exchange_panel = Panel(
+                        f"**Exchange ID:** {exchange.exchange_id}\n"
+                        f"**Thread ID:** {exchange.thread_id}\n"
+                        f"**Session ID:** {exchange.session_id}\n\n"
+                        f"**User:** {exchange.user_prompt}\n\n"
+                        f"**Assistant:** {exchange.assistant_response}",
+                        title=f"{title} - Exchange {i+1}/{len(exchanges)}",
+                        border_style="blue",
+                    )
+                    context.console.print(exchange_panel)
+                    context.console.print()  # Add spacing between exchanges
+                
+                return CommandResult.ok(f"Retrieved {len(exchanges)} exchanges for {query_type}: {query_id}")
+            
             else:
-                return CommandResult.error(
-                    f"Exchange with ID '{exchange_id}' not found."
-                )
+                # Original behavior - get single exchange by ID
+                exchange_id = args[0]
+                exchange = context.vector_store.get_exchange_by_id(exchange_id)
+
+                if exchange:
+                    # Display the exchange
+                    exchange_panel = Panel(
+                        f"**Exchange ID:** {exchange.exchange_id}\n"
+                        f"**Thread ID:** {exchange.thread_id}\n"
+                        f"**Session ID:** {exchange.session_id}\n\n"
+                        f"**User:** {exchange.user_prompt}\n\n"
+                        f"**Assistant:** {exchange.assistant_response}",
+                        title=f"Exchange: {exchange_id}",
+                        border_style="blue",
+                    )
+                    context.console.print(exchange_panel)
+
+                    return CommandResult.ok(f"Retrieved exchange: {exchange_id}")
+                else:
+                    return CommandResult.error(
+                        f"Exchange with ID '{exchange_id}' not found."
+                    )
 
         except Exception as e:
             return CommandResult.error(f"Failed to retrieve from vector store: {e}")

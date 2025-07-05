@@ -349,6 +349,46 @@ class ConversationVectorStore:
         """
         return self.metadata.get(exchange_id)
 
+    def get_exchanges_by_session_id(self, session_id: str) -> List[Exchange]:
+        """
+        Get all exchanges for a specific session ID.
+
+        Parameters
+        ----------
+        session_id : str
+            The session ID to retrieve exchanges for
+
+        Returns
+        -------
+        List[Exchange]
+            List of exchanges for the session, sorted by timestamp
+        """
+        exchanges = [
+            exchange for exchange in self.metadata.values()
+            if exchange.session_id == session_id
+        ]
+        return sorted(exchanges, key=lambda x: x.timestamp)
+
+    def get_exchanges_by_thread_id(self, thread_id: str) -> List[Exchange]:
+        """
+        Get all exchanges for a specific thread ID.
+
+        Parameters
+        ----------
+        thread_id : str
+            The thread ID to retrieve exchanges for
+
+        Returns
+        -------
+        List[Exchange]
+            List of exchanges for the thread, sorted by timestamp
+        """
+        exchanges = [
+            exchange for exchange in self.metadata.values()
+            if exchange.thread_id == thread_id
+        ]
+        return sorted(exchanges, key=lambda x: x.timestamp)
+
     def delete_exchange(self, exchange_id: str) -> bool:
         """
         Delete an exchange from the ChromaDB vector store.
