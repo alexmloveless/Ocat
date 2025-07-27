@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@pydantic/mcp-run-python": "jsr:@pydantic/mcp-run-python@^0.0.15"
+  }
+}
