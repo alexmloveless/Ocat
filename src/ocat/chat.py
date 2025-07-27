@@ -16,6 +16,7 @@ from .exceptions import PromptError, LLMError, VectorStoreError
 from .backends import LLMBackend, create_backend, MockLLMBackend
 from .vector_store import ConversationVectorStore, Exchange
 from .commands.parser import CommandParser
+from .productivity.integration import create_productivity_integration, ProductivityIntegration
 import time
 
 from rich.console import Console
@@ -117,6 +118,14 @@ class ChatSession:
         # Initialize command parser for slash commands
         self.command_parser = CommandParser(config)
         self.logger.debug("Command parser initialized")
+        
+        # Initialize productivity integration
+        self.productivity_integration: Optional[ProductivityIntegration] = None
+        try:
+            self.productivity_integration = create_productivity_integration(self)
+        except Exception as e:
+            self.logger.warning(f"Productivity integration disabled: {e}")
+            # Continue without productivity features
 
         # Warn user if base prompt is overridden
         if config.llm.override_base_prompt:
@@ -134,14 +143,20 @@ class ChatSession:
             config.llm.system_prompt_files,
             config.llm.override_base_prompt,
         )
+        
+        # Add productivity capabilities to system prompt if available
+        if self.productivity_integration:
+            system_content += self.productivity_integration.get_system_prompt_addition()
+        
         if system_content:
             self.messages.append(Message(role="system", content=system_content))
             prompt_count = len(config.llm.system_prompt_files)
             base_prompt_info = (
                 "" if config.llm.override_base_prompt else " (including base prompt)"
             )
+            productivity_info = " with productivity features" if self.productivity_integration else ""
             self.logger.info(
-                f"Loaded system prompt from {prompt_count} user file(s){base_prompt_info}"
+                f"Loaded system prompt from {prompt_count} user file(s){base_prompt_info}{productivity_info}"
             )
 
     async def process_message(self, user_input: str) -> None:
@@ -172,6 +187,46 @@ class ChatSession:
                 self.console.print(f"❌ Command error: {e}", style="red")
                 return
 
+        # Check if this is a productivity request
+        if self.productivity_integration and self.productivity_integration.should_use_productivity_agent(user_input):
+            try:
+                self.logger.debug(f"Routing to productivity agent: {user_input[:50]}...")
+                
+                # Process with productivity agent
+                productivity_response = await self.productivity_integration.process_productivity_request(user_input, self)
+                
+                if productivity_response:
+                    # Add both user message and productivity response to conversation
+                    user_message = Message(role="user", content=user_input)
+                    self.messages.append(user_message)
+                    
+                    assistant_message = Message(role="assistant", content=productivity_response)
+                    self.messages.append(assistant_message)
+                    
+                    # Display the response
+                    self._display_message(assistant_message)
+                    
+                    # Store exchange in vector store
+                    if self.vector_store:
+                        try:
+                            exchange_id = self.vector_store.add_exchange(
+                                user_prompt=user_input,
+                                assistant_response=productivity_response,
+                                thread_id=self.thread_id,
+                                session_id=self.session_id,
+                            )
+                            self.logger.debug(f"Stored productivity exchange {exchange_id} in vector store")
+                        except VectorStoreError as e:
+                            self.logger.warning(f"Failed to store productivity exchange: {e}")
+                    
+                    return
+                else:
+                    # Productivity agent failed, fall through to regular processing
+                    self.logger.warning("Productivity agent returned no response, using regular LLM")
+            except Exception as e:
+                self.logger.error(f"Productivity agent error: {e}")
+                # Fall through to regular processing
+        
         # Regular message processing
         # Add user message to conversation
         user_message = Message(role="user", content=user_input)

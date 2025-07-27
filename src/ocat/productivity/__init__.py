@@ -6,6 +6,8 @@ interface through pydantic-ai function calling.
 """
 
 from .models import Task, Event, Reminder, Memory, EntityType, EntityStatus
+from .storage import ProductivityStorage
+from .integration import ProductivityIntegration, create_productivity_integration
 
 __all__ = [
     "Task",
@@ -14,4 +16,7 @@ __all__ = [
     "Memory",
     "EntityType",
     "EntityStatus",
+    "ProductivityStorage",
+    "ProductivityIntegration",
+    "create_productivity_integration",
 ]
