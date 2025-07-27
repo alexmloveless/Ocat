@@ -1,0 +1,11 @@
+{
+  "0e80ef7e-c445-430b-9eaa-ab9d7b80b44d": {
+    "exchange_id": "0e80ef7e-c445-430b-9eaa-ab9d7b80b44d",
+    "thread_id": "productivity_system",
+    "session_id": "productivity_session",
+    "user_prompt": "Create task: Test task for storage",
+    "assistant_response": "Created task task001: Test task for storage",
+    "timestamp": 1753649688.4941308,
+    "prior_exchange_ids": []
+  }
+}
