@@ -152,7 +152,9 @@ class VectorGetCommand(BaseCommand):
             Result of command execution
         """
         if not args:
-            return CommandResult.error("No ID specified. Usage: /vget <id> | /vget session <session_id> | /vget thread <thread_id>")
+            return CommandResult.error(
+                "No ID specified. Usage: /vget <id> | /vget session <session_id> | /vget thread <thread_id>"
+            )
 
         try:
             # Check if vector store is enabled
@@ -168,17 +170,23 @@ class VectorGetCommand(BaseCommand):
             if len(args) >= 2 and args[0].lower() in ["session", "thread"]:
                 query_type = args[0].lower()
                 query_id = args[1]
-                
+
                 if query_type == "session":
-                    exchanges = context.vector_store.get_exchanges_by_session_id(query_id)
+                    exchanges = context.vector_store.get_exchanges_by_session_id(
+                        query_id
+                    )
                     title = f"Session: {query_id}"
                 else:  # thread
-                    exchanges = context.vector_store.get_exchanges_by_thread_id(query_id)
+                    exchanges = context.vector_store.get_exchanges_by_thread_id(
+                        query_id
+                    )
                     title = f"Thread: {query_id}"
-                
+
                 if not exchanges:
-                    return CommandResult.error(f"No exchanges found for {query_type} ID '{query_id}'.")
-                
+                    return CommandResult.error(
+                        f"No exchanges found for {query_type} ID '{query_id}'."
+                    )
+
                 # Display all exchanges for the session/thread
                 for i, exchange in enumerate(exchanges):
                     exchange_panel = Panel(
@@ -192,9 +200,11 @@ class VectorGetCommand(BaseCommand):
                     )
                     context.console.print(exchange_panel)
                     context.console.print()  # Add spacing between exchanges
-                
-                return CommandResult.ok(f"Retrieved {len(exchanges)} exchanges for {query_type}: {query_id}")
-            
+
+                return CommandResult.ok(
+                    f"Retrieved {len(exchanges)} exchanges for {query_type}: {query_id}"
+                )
+
             else:
                 # Original behavior - get single exchange by ID
                 exchange_id = args[0]

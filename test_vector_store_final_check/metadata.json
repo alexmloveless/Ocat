@@ -1,0 +1,56 @@
+{
+  "c8ed7de4-223e-4a79-9ad8-65a5b42200d3": {
+    "exchange_id": "c8ed7de4-223e-4a79-9ad8-65a5b42200d3",
+    "thread_id": "productivity_system",
+    "session_id": "productivity_session",
+    "user_prompt": "Create task: Review code",
+    "assistant_response": "Created task task001: Review code",
+    "timestamp": 1753650708.7730749,
+    "prior_exchange_ids": []
+  },
+  "c8f4b0b7-0c0a-4dbf-8f73-df16cf537e51": {
+    "exchange_id": "c8f4b0b7-0c0a-4dbf-8f73-df16cf537e51",
+    "thread_id": "fe51301c-c7d4-4889-bdc8-9c4f22ee07d1",
+    "session_id": "bce91423-070c-44ca-bc38-1d73ab74cb2c",
+    "user_prompt": "Create a task to review code by tomorrow at 5pm",
+    "assistant_response": "I've created a task for you to review code by tomorrow at 5 PM. If you need anything else, just let me know!",
+    "timestamp": 1753650709.876056,
+    "prior_exchange_ids": []
+  },
+  "8faab974-983e-448f-84f8-e606b818d6ed": {
+    "exchange_id": "8faab974-983e-448f-84f8-e606b818d6ed",
+    "thread_id": "fe51301c-c7d4-4889-bdc8-9c4f22ee07d1",
+    "session_id": "bce91423-070c-44ca-bc38-1d73ab74cb2c",
+    "user_prompt": "What is the meaning of life?",
+    "assistant_response": "This is a mock response from the LLM backend. I'm here to help with testing and development without making actual API calls.",
+    "timestamp": 1753650710.711561,
+    "prior_exchange_ids": []
+  },
+  "1428d14d-69eb-4860-a095-57f344d49e4b": {
+    "exchange_id": "1428d14d-69eb-4860-a095-57f344d49e4b",
+    "thread_id": "productivity_system",
+    "session_id": "productivity_session",
+    "user_prompt": "Create event: Team Retrospective",
+    "assistant_response": "Created event event001: Team Retrospective",
+    "timestamp": 1753650712.0087628,
+    "prior_exchange_ids": []
+  },
+  "059f990b-3f28-41f8-83d0-dac9a71185b1": {
+    "exchange_id": "059f990b-3f28-41f8-83d0-dac9a71185b1",
+    "thread_id": "fe51301c-c7d4-4889-bdc8-9c4f22ee07d1",
+    "session_id": "bce91423-070c-44ca-bc38-1d73ab74cb2c",
+    "user_prompt": "Schedule a team retrospective next Monday at 10am",
+    "assistant_response": "I've scheduled the team retrospective for next Monday at 10 AM. If you need any more details or modifications, just let me know!",
+    "timestamp": 1753650713.0635898,
+    "prior_exchange_ids": []
+  },
+  "fa42f56e-bfbf-4cd4-9be8-1273533fccc3": {
+    "exchange_id": "fa42f56e-bfbf-4cd4-9be8-1273533fccc3",
+    "thread_id": "fe51301c-c7d4-4889-bdc8-9c4f22ee07d1",
+    "session_id": "bce91423-070c-44ca-bc38-1d73ab74cb2c",
+    "user_prompt": "List all my current tasks",
+    "assistant_response": "You currently have the following task:\n\n- **Review code**  \n  - Due: 5:00 PM\n\nIf you need to add, update, or complete a task, just let me know!",
+    "timestamp": 1753650715.0555048,
+    "prior_exchange_ids": []
+  }
+}

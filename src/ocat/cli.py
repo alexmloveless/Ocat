@@ -446,9 +446,7 @@ async def run_interactive_chat(
     )
 
     # Show updated input info
-    console.print(
-        "[dim](Enter = submit  |  Up/Down arrows = history navigation)[/dim]"
-    )
+    console.print("[dim](Enter = submit  |  Up/Down arrows = history navigation)[/dim]")
 
     # Main interactive loop
     while True:

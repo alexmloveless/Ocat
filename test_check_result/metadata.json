@@ -1,0 +1,11 @@
+{
+  "8771dd13-4a2d-499c-942a-30375c45b7f4": {
+    "exchange_id": "8771dd13-4a2d-499c-942a-30375c45b7f4",
+    "thread_id": "productivity_system",
+    "session_id": "productivity_session",
+    "user_prompt": "Create task: Test Task",
+    "assistant_response": "Created task task001: Test Task",
+    "timestamp": 1753650663.730793,
+    "prior_exchange_ids": []
+  }
+}

@@ -364,7 +364,8 @@ class ConversationVectorStore:
             List of exchanges for the session, sorted by timestamp
         """
         exchanges = [
-            exchange for exchange in self.metadata.values()
+            exchange
+            for exchange in self.metadata.values()
             if exchange.session_id == session_id
         ]
         return sorted(exchanges, key=lambda x: x.timestamp)
@@ -384,7 +385,8 @@ class ConversationVectorStore:
             List of exchanges for the thread, sorted by timestamp
         """
         exchanges = [
-            exchange for exchange in self.metadata.values()
+            exchange
+            for exchange in self.metadata.values()
             if exchange.thread_id == thread_id
         ]
         return sorted(exchanges, key=lambda x: x.timestamp)

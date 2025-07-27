@@ -1,7 +1,7 @@
 """
 Tests for location alias expansion in write commands.
 
-Tests that all write commands (writemd, writejson, writeresp, writecode) 
+Tests that all write commands (writemd, writejson, writeresp, writecode)
 properly expand location aliases.
 """
 

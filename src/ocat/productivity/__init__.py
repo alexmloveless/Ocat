@@ -11,7 +11,7 @@ from .integration import ProductivityIntegration, create_productivity_integratio
 
 __all__ = [
     "Task",
-    "Event", 
+    "Event",
     "Reminder",
     "Memory",
     "EntityType",
