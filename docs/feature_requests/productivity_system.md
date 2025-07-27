@@ -8,14 +8,24 @@ Implement a function calling system that allows LLM models to interact with loca
 ### Function Calling Framework
 - **Technology**: pydantic-ai function calling system
 - **Documentation**: `/Users/alex/Documents/repos/pydantic-ai/docs`
-- **Integration**: Model receives function call capabilities via system prompt
+- **Integration**: Create productivity agent with tools registered via `@agent.tool` decorator
+- **Architecture**: 
+  - Agent class manages tool registration and execution
+  - RunContext provides dependency injection for vector store access
+  - Automatic parameter validation via pydantic models
+  - Tool return values automatically sent back to model for response inclusion
+  - Built-in error handling with retry mechanism
 
 ### Command Interface
-- **Prefix**: `!` (exclamation point) to distinguish from human-only `/` commands
-- **Example**: `! create a reminder for next tuesday to call Sam`
-- **Processing**: Send `!` commands directly to model, system prompt explains handling
-- **Keywords**: Operations must start with create/update/read/delete as first word
-- **Aliases**: Support aliases like "add meeting" → "create event"
+- **Natural Language**: No special prefix required - model recognizes productivity intent
+- **Examples**: 
+  - "create a reminder for next tuesday to call Sam"
+  - "add meeting with team on Friday at 2pm"
+  - "show my tasks for this week"
+  - "mark task 123 as completed"
+- **Processing**: Tools registered with main chat agent, model decides when to use them
+- **Intent Recognition**: Model uses tool descriptions and system prompt to identify productivity requests
+- **Flexible Phrasing**: Handles variations like "add task", "new reminder", "schedule meeting"
 
 ### Storage Architecture
 - **Backend**: Same ChromaDB vector store as conversation history
@@ -54,7 +64,8 @@ Implement a function calling system that allows LLM models to interact with loca
 - **Metadata**: All entities have created date, type, status
 - **Text Storage**: Plain text values stored as vectors
 - **Status**: Soft deletion using status field as metadata
-- **Validation**: Pydantic models enforce constraints and standardization
+- **Validation**: Pydantic BaseModel classes enforce constraints and standardization
+- **Tool Parameters**: Entity creation/update uses pydantic models for automatic validation
 
 ### Data Management
 
@@ -76,39 +87,50 @@ Implement a function calling system that allows LLM models to interact with loca
 - **Consistency**: Standardized output across all entity types
 
 ### Error Handling
-- **pydantic-ai**: Framework handles validation and error responses
-- **Model Decision**: Model receives errors and decides response approach
+- **Automatic Validation**: pydantic-ai validates tool parameters and sends errors back to model
+- **ModelRetry Exception**: Tools can raise ModelRetry for custom error handling
+- **Retry Mechanism**: Built-in retry system respects configured retry limits
+- **Model Decision**: Model receives validation errors and decides response approach
 - **User Feedback**: Clear error messages for invalid operations
 
 ### Integration Points
 
 #### System Prompt
-- Document available functions and usage patterns
-- Explain `!` prefix behavior
-- Provide function metadata and constraints
-- Include keyword requirements and aliases
+- Document available productivity tools and capabilities
+- Explain natural language productivity intent recognition
+- Provide tool descriptions and usage examples
+- Include entity types and their properties
 
 #### Response Flow
-1. User sends `! command`
-2. Model processes and calls appropriate function
-3. Function executes and returns result/error
-4. Model incorporates response into user reply
+1. User sends natural language request
+2. Model recognizes productivity intent and calls appropriate tool
+3. Tool executes and returns result/error to model
+4. Model incorporates response into conversational reply
 5. Consistent output formatting applied
 
 ## Implementation Scope
 
 ### Phase 1 (Current)
-- Core function calling infrastructure
+- Productivity agent with pydantic-ai tools
 - Basic CRUD operations for all entity types
-- Pydantic model definitions
-- Vector store abstraction layer
+- Pydantic BaseModel entity definitions
+- Vector store abstraction with RunContext dependency injection
 - Pseudo ID system
+- Integration with existing Ocat chat system
 
 ### Excluded from Phase 1
 - Alerting system for reminders
 - Advanced querying capabilities
 - UI enhancements beyond console output
 - Integration with external calendar systems
+
+## Technical Implementation Questions
+
+### Architecture Decisions Made
+1. **Agent Integration**: Tools integrated into main chat agent for seamless conversation flow
+2. **RunContext Dependencies**: ProductivityStorage abstraction provides clean vector store interface
+3. **Command Detection**: Natural language intent recognition - no special prefix required
+4. **Entity Storage**: Same ChromaDB collection with entity_type metadata for unified search
 
 ## Technical Notes
 - Maintain backward compatibility with existing vector store
