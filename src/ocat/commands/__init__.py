@@ -50,7 +50,7 @@ class CommandResult:
 class BaseCommand(ABC):
     """Base class for all Ocat commands."""
 
-    def __init__(self, name: str, description: str, usage: str = ""):
+    def __init__(self, name: str = "", description: str = "", usage: str = ""):
         """
         Initialize base command.
 
@@ -65,7 +65,7 @@ class BaseCommand(ABC):
         """
         self.name = name
         self.description = description
-        self.usage = usage or f"/{name}"
+        self.usage = usage or f"/{name}" if name else ""
 
     @abstractmethod
     async def execute(self, args: List[str], context: Any) -> CommandResult:
@@ -213,6 +213,7 @@ from . import help_command
 from . import core_commands
 from . import history_commands
 from . import file_commands
+from . import file_operations
 from . import vector_commands
 from . import context_commands
 from . import remember_command

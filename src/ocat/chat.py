@@ -20,6 +20,10 @@ from .productivity.integration import (
     create_productivity_integration,
     ProductivityIntegration,
 )
+from .file_tools.integration import (
+    create_file_integration_for_session,
+    FileIntegration,
+)
 import time
 
 from rich.console import Console
@@ -86,6 +90,10 @@ class ChatSession:
         # Set up logging for chat session
         self.logger = setup_logger("ocat.chat", LogLevel[config.logging.level], config)
         self.logger.debug("Chat session initialized")
+        
+        # Initialize current working directory for file operations
+        from pathlib import Path
+        self.current_directory = Path.cwd()
 
         # Generate session and thread IDs for vector store
         self.session_id = str(uuid.uuid4())
@@ -129,6 +137,14 @@ class ChatSession:
         except Exception as e:
             self.logger.warning(f"Productivity integration disabled: {e}")
             # Continue without productivity features
+        
+        # Initialize file tools integration
+        self.file_integration: Optional[FileIntegration] = None
+        try:
+            self.file_integration = create_file_integration_for_session(config, self.current_directory)
+        except Exception as e:
+            self.logger.warning(f"File tools integration disabled: {e}")
+            # Continue without file tools
 
         # Warn user if base prompt is overridden
         if config.llm.override_base_prompt:
@@ -150,6 +166,13 @@ class ChatSession:
         # Add productivity capabilities to system prompt if available
         if self.productivity_integration:
             system_content += self.productivity_integration.get_system_prompt_addition()
+        
+        # Add file tools capabilities to system prompt if available
+        if self.file_integration:
+            system_content += "\n\n## File Operations Available\n"
+            system_content += "You can read, write, and explore files directly. When users ask to read files, "
+            system_content += "summarize content, or work with the file system, you have access to these capabilities "
+            system_content += "through integrated tools. Use them naturally in conversation."
 
         if system_content:
             self.messages.append(Message(role="system", content=system_content))
@@ -160,8 +183,11 @@ class ChatSession:
             productivity_info = (
                 " with productivity features" if self.productivity_integration else ""
             )
+            file_tools_info = (
+                " and file tools" if self.file_integration else ""
+            )
             self.logger.info(
-                f"Loaded system prompt from {prompt_count} user file(s){base_prompt_info}{productivity_info}"
+                f"Loaded system prompt from {prompt_count} user file(s){base_prompt_info}{productivity_info}{file_tools_info}"
             )
 
     async def process_message(self, user_input: str) -> None:
@@ -247,6 +273,62 @@ class ChatSession:
                     )
             except Exception as e:
                 self.logger.error(f"Productivity agent error: {e}")
+                # Fall through to regular processing
+
+        # Check for file operation intent
+        if (
+            self.file_integration
+            and self.file_integration.detect_file_intent(user_input)
+        ):
+            try:
+                self.logger.debug(
+                    f"Routing to file agent: {user_input[:50]}..."
+                )
+
+                # Update current directory in file integration
+                self.file_integration.update_current_directory(self.current_directory)
+
+                # Process with file agent
+                file_response = await self.file_integration.handle_file_request(user_input)
+
+                if file_response:
+                    # Add both user message and file response to conversation
+                    user_message = Message(role="user", content=user_input)
+                    self.messages.append(user_message)
+
+                    assistant_message = Message(
+                        role="assistant", content=file_response
+                    )
+                    self.messages.append(assistant_message)
+
+                    # Display the response
+                    self._display_message(assistant_message)
+
+                    # Store exchange in vector store
+                    if self.vector_store:
+                        try:
+                            exchange_id = self.vector_store.add_exchange(
+                                user_prompt=user_input,
+                                assistant_response=file_response,
+                                thread_id=self.thread_id,
+                                session_id=self.session_id,
+                            )
+                            self.logger.debug(
+                                f"Stored file operation exchange {exchange_id} in vector store"
+                            )
+                        except VectorStoreError as e:
+                            self.logger.warning(
+                                f"Failed to store file operation exchange: {e}"
+                            )
+
+                    return
+                else:
+                    # File agent failed, fall through to regular processing
+                    self.logger.warning(
+                        "File agent returned no response, using regular LLM"
+                    )
+            except Exception as e:
+                self.logger.error(f"File agent error: {e}")
                 # Fall through to regular processing
 
         # Regular message processing

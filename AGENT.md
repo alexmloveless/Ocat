@@ -16,9 +16,11 @@
 - **Productivity**: `src/ocat/productivity/` - Task, event, reminder, and memory management system
 - **Config**: `ocat.yaml` - Main configuration file, uses Pydantic for validation
 
-## Productivity System
-- **Natural language interface**: Create tasks, events, reminders, and memories using conversational commands
-- **Examples**: "create a reminder for next tuesday to call Sam", "add meeting with team on Friday at 2pm"
+## AI Tool Integration
+- **File Operations**: AI has direct access to read, write, search, and manage files through pydantic-ai tools
+- **Productivity System**: AI can create tasks, events, reminders, and memories using conversational commands
+- **Natural language interface**: Users can ask "read myfile.md and summarize" and AI will use file tools directly
+- **Examples**: "create a reminder for next tuesday to call Sam", "read config.yaml and explain the settings"
 - **Storage**: Uses same ChromaDB vector store as conversation history
 - **Features**: CRUD operations, pseudo IDs (task001, event001), status tracking, flexible date parsing
 
@@ -30,6 +32,30 @@
 - **Formatting**: Black formatting (automated via dev.sh)
 - **Error handling**: Use custom exceptions from `exceptions.py`
 - **Commits**: Use conventional commits format (feat/fix/docs/test/refactor)
+
+## Help System
+- **Location**: `src/ocat/commands/help_system.py` - Centralized help content management
+- **Structure**: Organized sections (commands, productivity, files, chat, config, tips)
+- **Usage**: `/help` for overview, `/help <section>` for specific topics
+- **Adding sections**: Use `add_help_section(key, title, content, aliases)` function
+- **Content format**: Markdown with clear headers, code blocks, and examples
+- **Aliases**: Support multiple keywords per section (e.g., "tasks" and "productivity")
+
+### Adding New Help Content
+```python
+from src.ocat.commands.help_system import add_help_section
+
+# Add new section
+add_help_section(
+    key="new_feature",
+    title="New Feature Guide", 
+    content="""# 🚀 **New Feature**
+    
+    Detailed markdown content here...
+    """,
+    aliases=["feature", "new"]
+)
+```
 
 ## Development Workflow
 - **MANDATORY**: ALWAYS create a new branch before making changes
