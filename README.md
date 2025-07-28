@@ -12,6 +12,7 @@ An interactive LLM Chat CLI tool that provides a beautiful command-line interfac
 
 - 🎨 **Rich Terminal UI** - Beautiful formatting with colors, panels, and markdown support
 - 📝 **Interactive Chat** - Seamless conversation flow with history and auto-suggestions
+- 📋 **Productivity System** - Natural language task, event, reminder, and memory management
 - ⚙️ **Configurable** - Support for multiple LLM providers and customizable settings
 - 🔧 **CLI-First** - Designed for developers who love the terminal
 - 🚀 **Easy to Use** - Simple installation and intuitive commands
@@ -55,6 +56,14 @@ ocat
    - `help` or `h` - Show available commands
    - `clear` - Clear the screen
    - `exit`, `quit`, or `q` - Exit the application
+
+4. **Manage productivity with natural language**:
+   ```
+   🐱 > create a reminder for next tuesday to call Sam
+   🐱 > add meeting with team on Friday at 2pm
+   🐱 > show my tasks for this week
+   🐱 > mark task001 as completed
+   ```
 
 ## Configuration
 
@@ -163,7 +172,11 @@ ocat/
 │       ├── __init__.py      # Package initialization
 │       ├── cli.py           # Main CLI interface
 │       ├── config.py        # Configuration management
-│       └── chat.py          # Chat session handling
+│       ├── chat.py          # Chat session handling
+│       ├── commands/        # Built-in chat commands
+│       ├── backends/        # LLM provider integrations
+│       ├── productivity/    # Task, event, reminder, memory management
+│       └── vector_store.py  # ChromaDB integration
 ├── tests/
 │   ├── __init__.py
 │   ├── test_cli.py          # CLI tests
@@ -188,8 +201,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Roadmap
 
-- [ ] Support for multiple LLM providers (OpenAI, Anthropic, local models)
-- [ ] Conversation persistence and history
+- [x] Support for multiple LLM providers (OpenAI, Anthropic, Google)
+- [x] Conversation persistence and history via vector store
+- [x] Productivity system (tasks, events, reminders, memories)
 - [ ] Plugin system for custom commands
 - [ ] Conversation templates and presets
 - [ ] File upload and processing capabilities

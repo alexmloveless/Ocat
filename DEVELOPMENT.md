@@ -34,11 +34,19 @@ Fill out the template completely and continue with your original task. This ensu
 
 ### Development Workflow (ALWAYS follow this order)
 ```bash
-# 1. ALWAYS use dev.sh for complete cycle
+# 1. MANDATORY: Create a new branch before making changes
+git checkout -b feat/your-feature-name
+
+# 2. ALWAYS use dev.sh for complete cycle
 ./dev.sh "feat: your commit message"
 
 # This runs: black → mypy → pytest → git add → git commit
 # Following conventional commits: feat/fix/docs/test/refactor
+
+# 3. After testing, merge to main
+git checkout main
+git merge feat/your-feature-name
+git push origin main
 ```
 
 ### Testing & Quality (Run before every commit)
@@ -64,7 +72,11 @@ ocat/
 ├── src/ocat/           # Main application code
 │   ├── cli.py         # CLI interface
 │   ├── config.py      # Configuration management
-│   └── chat.py        # Chat functionality
+│   ├── chat.py        # Chat functionality
+│   ├── commands/      # Built-in chat commands
+│   ├── backends/      # LLM provider integrations
+│   ├── productivity/  # Task, event, reminder, memory management
+│   └── vector_store.py # ChromaDB integration
 ├── tests/             # Test suite
 ├── .dev/              # Development process management
 └── dev.sh             # MAIN DEVELOPMENT SCRIPT
@@ -83,12 +95,19 @@ ocat/
 
 ### Git Process
 ```bash
+# MANDATORY: Always create branch first
+git checkout -b feat/feature-name
+
 # ALWAYS use conventional commits
 git commit -m "feat: add new feature"
 git commit -m "fix: resolve bug issue"
 git commit -m "docs: update documentation"
 git commit -m "test: add missing tests"
 git commit -m "refactor: improve code structure"
+
+# Merge to main after testing
+git checkout main
+git merge feat/feature-name
 ```
 
 ## 🐛 Bug Discovery Protocol

@@ -546,9 +546,7 @@ class AppendCommand(BaseCommand):
                     f.write("\n")
 
             if len(args) > 1:
-                context.console.print(
-                    f"✅ Text appended to: {file_path}", style="green"
-                )
+                context.console.print(f"✅ Text appended to: {file_path}", style="green")
                 return CommandResult.ok(f"Text appended to {file_path}")
             else:
                 context.console.print(
