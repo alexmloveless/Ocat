@@ -18,6 +18,7 @@ from .models import (
     Event,
     Reminder,
     Memory,
+    ListItem,
     EntityType,
     EntityStatus,
     create_entity,
@@ -54,6 +55,7 @@ class ProductivityStorage:
             EntityType.EVENT: 0,
             EntityType.REMINDER: 0,
             EntityType.MEMORY: 0,
+            EntityType.LIST_ITEM: 0,
         }
 
         # Cache for pseudo ID to exchange ID mapping
@@ -159,7 +161,7 @@ class ProductivityStorage:
                     ),
                 ),
                 "pseudo_id": metadata.get("entity_pseudo_id"),
-                "status": metadata.get("entity_status", EntityStatus.ACTIVE),
+                "status": EntityStatus(metadata["entity_status"]) if metadata.get("entity_status") else None,
                 "created_at": (
                     datetime.fromisoformat(metadata["entity_created_at"])
                     if "entity_created_at" in metadata
@@ -226,6 +228,14 @@ class ProductivityStorage:
                         "tags": json.loads(metadata.get("memory_tags", "[]")),
                     }
                 )
+            elif entity_type == EntityType.LIST_ITEM:
+                entity_data.update(
+                    {
+                        "list_name": metadata.get("list_item_list_name"),
+                        "category": metadata.get("list_item_category"),
+                        "tags": json.loads(metadata.get("list_item_tags", "[]")),
+                    }
+                )
 
             return create_entity(entity_type, **entity_data)
 
@@ -235,10 +245,10 @@ class ProductivityStorage:
     def _entity_to_metadata(self, entity: ProductivityEntity) -> Dict[str, Any]:
         """Convert entity to vector store metadata format."""
         metadata = {
-            "entity_type": entity.entity_type.value,
+            "entity_type": entity.entity_type.value if hasattr(entity.entity_type, 'value') else entity.entity_type,
             "entity_content": entity.content,
             "entity_pseudo_id": entity.pseudo_id,
-            "entity_status": entity.status.value,
+            "entity_status": entity.status.value if entity.status and hasattr(entity.status, 'value') else (entity.status if entity.status else None),
             "entity_created_at": entity.created_at.isoformat(),
             "entity_updated_at": (
                 entity.updated_at.isoformat() if entity.updated_at else None
@@ -285,6 +295,14 @@ class ProductivityStorage:
                     "memory_tags": json.dumps(entity.tags),
                 }
             )
+        elif isinstance(entity, ListItem):
+            metadata.update(
+                {
+                    "list_item_list_name": entity.list_name,
+                    "list_item_category": entity.category,
+                    "list_item_tags": json.dumps(entity.tags),
+                }
+            )
 
         return metadata
 
@@ -311,7 +329,8 @@ class ProductivityStorage:
             try:
                 # Generate pseudo ID if not provided
                 if not entity.pseudo_id:
-                    entity.pseudo_id = self._generate_pseudo_id(entity.entity_type)
+                    entity_type = EntityType(entity.entity_type) if isinstance(entity.entity_type, str) else entity.entity_type
+                    entity.pseudo_id = self._generate_pseudo_id(entity_type)
 
                 # Set timestamps
                 if not entity.created_at:
@@ -322,8 +341,9 @@ class ProductivityStorage:
                 metadata = self._entity_to_metadata(entity)
 
                 # Create a user prompt that represents the entity creation
-                user_prompt = f"Create {entity.entity_type.value}: {entity.content}"
-                assistant_response = f"Created {entity.entity_type.value} {entity.pseudo_id}: {entity.content}"
+                entity_type_str = entity.entity_type.value if hasattr(entity.entity_type, 'value') else entity.entity_type
+                user_prompt = f"Create {entity_type_str}: {entity.content}"
+                assistant_response = f"Created {entity_type_str} {entity.pseudo_id}: {entity.content}"
 
                 # Store in vector store
                 exchange_id = self.vector_store.add_exchange(
@@ -433,7 +453,10 @@ class ProductivityStorage:
                 entity_dict["updated_at"] = datetime.now()
 
                 # Create updated entity
-                updated_entity = create_entity(entity.entity_type, **entity_dict)
+                # Remove entity_type from dict since it's passed as first arg
+                entity_dict_clean = entity_dict.copy()
+                entity_dict_clean.pop('entity_type', None)
+                updated_entity = create_entity(entity.entity_type, **entity_dict_clean)
                 updated_entity.pseudo_id = pseudo_id  # Preserve pseudo ID
 
                 # Get exchange ID - need to search through vector store
@@ -478,10 +501,9 @@ class ProductivityStorage:
                             }
                         ],
                     )
-                except Exception:
-                    pass
-
-                return True
+                    return True
+                except Exception as e:
+                    return False
 
             except Exception as e:
                 return False
@@ -625,9 +647,6 @@ class ProductivityStorage:
         List[ProductivityEntity]
             List of entities of the specified type
         """
-        if status is None:
-            status = EntityStatus.ACTIVE
-
         return self.search_entities(
             entity_types=[entity_type], status=status, limit=limit
         )

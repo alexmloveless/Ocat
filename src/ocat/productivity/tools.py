@@ -16,6 +16,7 @@ from .models import (
     Event,
     Reminder,
     Memory,
+    ListItem,
     EntityType,
     EntityStatus,
     create_entity,
@@ -74,6 +75,15 @@ class MemoryCreateRequest(BaseModel):
     tags: Optional[str] = Field(None, description="Comma-separated tags")
 
 
+class ListItemCreateRequest(BaseModel):
+    """Request model for creating a list item."""
+
+    content: str = Field(description="List item description")
+    list_name: str = Field(description="Name of the list this item belongs to")
+    category: Optional[str] = Field(None, description="Item category or classification")
+    tags: Optional[str] = Field(None, description="Comma-separated tags")
+
+
 class EntityUpdateRequest(BaseModel):
     """Request model for updating an entity."""
 
@@ -120,16 +130,23 @@ class EntitySearchRequest(BaseModel):
 productivity_agent: Agent[ProductivityStorage, str] = Agent(
     "openai:gpt-4o-mini",  # Use a fast, cost-effective model for tool calls
     deps_type=ProductivityStorage,
-    system_prompt="""You are a productivity assistant that helps manage tasks, events, reminders, and memories.
+    system_prompt="""You are a productivity assistant that helps manage tasks, events, reminders, memories, and lists.
 
 You have access to tools for creating, reading, updating, and deleting productivity entities. Use these tools when users ask to:
-- Create tasks, events, reminders, or memories
+- Create tasks, events, reminders, memories, or list items
 - Show, list, or find existing entities  
 - Update or modify entities
-- Mark tasks as complete or delete entities
+- Mark tasks as complete, archive list items, or delete entities
 - Search through their productivity data
+- Manage categorized lists of items
 
-When users provide natural language requests like "remind me to call mom tomorrow at 3pm" or "add a meeting with the team on Friday", 
+For list management specifically:
+- Use create_list_item to add items to named lists with optional categories
+- Use list_items to show items in a specific list or all items
+- Use get_list_summary to show all available lists with counts
+- Use archive_list_item to archive items (don't delete them)
+
+When users provide natural language requests like "remind me to call mom tomorrow at 3pm", "add a meeting with the team on Friday", or "add milk to shopping list", 
 use the appropriate creation tools with the parsed information.
 
 Always be helpful and confirm what actions you've taken. If information is missing or unclear, ask for clarification rather than guessing.
@@ -389,7 +406,7 @@ async def search_entities(
             search_text = " with " + " and ".join(search_desc) if search_desc else ""
             return f"No entities found{search_text}."
 
-        return format_entity_list(entities)
+        return format_entity_list(entities, format_type="markdown")
 
     except Exception as e:
         raise ModelRetry(
@@ -421,7 +438,7 @@ async def list_tasks(
             status_text = f" with status '{status}'" if status else ""
             return f"No tasks found{status_text}."
 
-        return format_entity_list(tasks, title=f"Tasks ({status_enum.value})")
+        return format_entity_list(tasks, format_type="markdown", title=f"Tasks ({status_enum.value})")
 
     except Exception as e:
         raise ModelRetry(f"Failed to list tasks: {str(e)}. Please try again.")
@@ -474,7 +491,7 @@ async def mark_task_complete(ctx: RunContext[ProductivityStorage], task_id: str)
             return f"{task_id} is not a task. Only tasks can be marked as complete."
 
         # Update to completed status
-        success = ctx.deps.update_entity(task_id, {"status": EntityStatus.COMPLETED})
+        success = ctx.deps.update_entity(task_id, {"status": EntityStatus.COMPLETED.value})
 
         if success:
             return f"Marked task {task_id} as completed: {entity.content}"
@@ -485,3 +502,113 @@ async def mark_task_complete(ctx: RunContext[ProductivityStorage], task_id: str)
         raise ModelRetry(
             f"Failed to mark task complete: {str(e)}. Please check the task ID."
         )
+
+
+@productivity_agent.tool
+async def create_list_item(
+    ctx: RunContext[ProductivityStorage], request: ListItemCreateRequest
+) -> str:
+    """Create a new list item."""
+    try:
+        list_item = create_entity(
+            EntityType.LIST_ITEM,
+            content=request.content,
+            list_name=request.list_name,
+            category=request.category,
+            tags=request.tags.split(",") if request.tags else [],
+        )
+
+        # Store the list item
+        pseudo_id = ctx.deps.create_entity(list_item)
+
+        return f"Created list item {pseudo_id} in '{request.list_name}': {request.content}"
+
+    except Exception as e:
+        raise ModelRetry(f"Failed to create list item: {str(e)}. Please try again.")
+
+
+@productivity_agent.tool
+async def list_items(
+    ctx: RunContext[ProductivityStorage], 
+    list_name: Optional[str] = None, 
+    limit: int = 20
+) -> str:
+    """List all list items, optionally filtered by list name."""
+    try:
+        items = ctx.deps.get_entities_by_type(
+            EntityType.LIST_ITEM, status=None, limit=limit
+        )
+
+        # Filter by list name if specified
+        if list_name:
+            items = [item for item in items if item.list_name.lower() == list_name.lower()]
+
+        if not items:
+            if list_name:
+                return f"No items found in list '{list_name}'."
+            else:
+                return "No list items found."
+
+        if list_name:
+            return format_entity_list(items, title=f"List: {list_name}")
+        else:
+            return format_entity_list(items, title="All List Items")
+
+    except Exception as e:
+        raise ModelRetry(f"Failed to list items: {str(e)}. Please try again.")
+
+
+@productivity_agent.tool
+async def archive_list_item(ctx: RunContext[ProductivityStorage], item_id: str) -> str:
+    """Archive a specific list item."""
+    try:
+        # Check if it's a list item
+        entity = ctx.deps.get_entity_by_pseudo_id(item_id)
+        if not entity:
+            return f"No entity found with ID '{item_id}'."
+
+        if not isinstance(entity, ListItem):
+            return f"{item_id} is not a list item. Only list items can be archived."
+
+        # Update to archived status
+        success = ctx.deps.update_entity(item_id, {"status": EntityStatus.ARCHIVED.value})
+
+        if success:
+            return f"Archived list item {item_id}: {entity.content}"
+        else:
+            return f"Failed to archive list item {item_id}. Please try again."
+
+    except Exception as e:
+        raise ModelRetry(
+            f"Failed to archive list item: {str(e)}. Please check the item ID."
+        )
+
+
+@productivity_agent.tool
+async def get_list_summary(ctx: RunContext[ProductivityStorage]) -> str:
+    """Get a summary of all lists with item counts."""
+    try:
+        items = ctx.deps.get_entities_by_type(
+            EntityType.LIST_ITEM, status=None, limit=1000
+        )
+
+        if not items:
+            return "No lists found."
+
+        # Group by list name
+        list_counts = {}
+        for item in items:
+            list_name = item.list_name
+            if list_name not in list_counts:
+                list_counts[list_name] = 0
+            list_counts[list_name] += 1
+
+        # Format the summary
+        summary_lines = ["# Available Lists", ""]
+        for list_name, count in sorted(list_counts.items()):
+            summary_lines.append(f"- **{list_name}**: {count} items")
+
+        return "\n".join(summary_lines)
+
+    except Exception as e:
+        raise ModelRetry(f"Failed to get list summary: {str(e)}. Please try again.")

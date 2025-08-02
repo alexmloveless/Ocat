@@ -21,6 +21,7 @@ class EntityType(str, Enum):
     EVENT = "event"
     REMINDER = "reminder"
     MEMORY = "memory"
+    LIST_ITEM = "list_item"
 
 
 class EntityStatus(str, Enum):
@@ -30,6 +31,7 @@ class EntityStatus(str, Enum):
     COMPLETED = "completed"
     IN_PROGRESS = "in_progress"
     DELETED = "deleted"
+    ARCHIVED = "archived"
 
 
 class BaseEntity(BaseModel):
@@ -42,8 +44,8 @@ class BaseEntity(BaseModel):
     pseudo_id: Optional[str] = Field(None, description="Human-readable ID like task001")
     entity_type: EntityType = Field(description="Type of entity")
     content: str = Field(description="Main text content describing the entity")
-    status: EntityStatus = Field(
-        default=EntityStatus.ACTIVE, description="Current status"
+    status: Optional[EntityStatus] = Field(
+        default=None, description="Current status (optional)"
     )
     created_at: datetime = Field(
         default_factory=datetime.now, description="Creation timestamp"
@@ -261,8 +263,30 @@ class Memory(BaseEntity):
         return v or []
 
 
+class ListItem(BaseEntity):
+    """
+    List item entity for managing categorized lists of items.
+    """
+
+    entity_type: Literal[EntityType.LIST_ITEM] = EntityType.LIST_ITEM
+    list_name: str = Field(description="Name of the list this item belongs to")
+    category: Optional[str] = Field(None, description="Item category or classification")
+    tags: List[str] = Field(default_factory=list, description="Item tags")
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def parse_tags(cls, v):
+        """Parse tags from string or list."""
+        if isinstance(v, str):
+            tags = re.split(r"[,;\s]+", v.strip())
+            return [tag.strip() for tag in tags if tag.strip()]
+        elif isinstance(v, list):
+            return [str(tag).strip() for tag in v if str(tag).strip()]
+        return v or []
+
+
 # Union type for all entity types
-ProductivityEntity = Union[Task, Event, Reminder, Memory]
+ProductivityEntity = Union[Task, Event, Reminder, Memory, ListItem]
 
 
 def create_entity(entity_type: EntityType, **kwargs) -> ProductivityEntity:
@@ -286,6 +310,7 @@ def create_entity(entity_type: EntityType, **kwargs) -> ProductivityEntity:
         EntityType.EVENT: Event,
         EntityType.REMINDER: Reminder,
         EntityType.MEMORY: Memory,
+        EntityType.LIST_ITEM: ListItem,
     }
 
     entity_class = entity_classes.get(entity_type)

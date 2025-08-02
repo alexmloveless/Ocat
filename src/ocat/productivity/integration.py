@@ -59,6 +59,15 @@ class ProductivityIntegration:
             "note",
             "save",
             "store",
+            # List-related
+            "list",
+            "item",
+            "items",
+            "shopping",
+            "books",
+            "travel",
+            "archive",
+            "bucket",
             # Actions
             "create",
             "add",
@@ -85,18 +94,22 @@ class ProductivityIntegration:
 
         # Phrases that strongly indicate productivity intent
         self.productivity_phrases = [
-            r"\b(?:create|add|new|make)\s+(?:a\s+)?(?:task|todo|meeting|event|reminder|appointment)",
+            r"\b(?:create|add|new|make)\s+(?:a\s+)?(?:task|todo|meeting|event|reminder|appointment|list|item)",
             r"\b(?:remind|alert|notify)\s+me\b",
             r"\b(?:remember|save|store)\s+(?:that|this|the)",
             r"\b(?:schedule|book)\s+(?:a\s+)?(?:meeting|appointment)",
             r"\b(?:mark|set)\s+(?:task|todo).*(?:complete|done)",
-            r"\b(?:show|list|display)\s+(?:my\s+)?(?:tasks|todos|events|meetings|reminders)",
+            r"\b(?:show|list|display)\s+(?:my\s+)?(?:tasks|todos|events|meetings|reminders|lists|items)",
             r"\b(?:what|when).*(?:due|deadline|scheduled)",
-            r"\b(?:update|edit|change)\s+(?:task|event|reminder)",
+            r"\b(?:update|edit|change)\s+(?:task|event|reminder|item)",
             r"\bdue\s+(?:date|by|on|next|tomorrow)",
             r"\bnext\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)",
             r"\btomorrow\s+at\b",
             r"\bin\s+(?:\d+\s+)?(?:minutes|hours|days|weeks)",
+            r"\b(?:add|create).*(?:to|in)\s+(?:list|shopping|books|travel)",
+            r"\b(?:archive|remove)\s+(?:item|list)",
+            r"\bshow\s+(?:all\s+)?lists\b",
+            r"\bitems?\s+in\s+(?:list|shopping|books)",
         ]
 
         # Compile regex patterns for efficiency

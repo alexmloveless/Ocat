@@ -218,3 +218,4 @@ from . import vector_commands
 from . import context_commands
 from . import remember_command
 from . import clipboard_commands
+from . import productivity_commands

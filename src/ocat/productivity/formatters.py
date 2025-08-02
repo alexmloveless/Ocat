@@ -251,42 +251,52 @@ def _format_entity_list_markdown(
     lines = []
 
     if title:
-        lines.append(f"# {title}")
+        lines.append(f"## {title}")
         lines.append(f"*{len(entities)} items*")
         lines.append("")
 
-    # Create table
-    lines.append("| ID | Type | Status | Content | Details |")
-    lines.append("|---|---|---|---|---|")
+    # Create simplified table with 3 columns
+    lines.append("| ID | Status | Task |")
+    lines.append("|---|---|---|")
 
     for entity in entities:
         type_emoji = {
             EntityType.TASK: "✅",
-            EntityType.EVENT: "📅",
+            EntityType.EVENT: "📅", 
             EntityType.REMINDER: "⏰",
             EntityType.MEMORY: "💾",
+            EntityType.LIST_ITEM: "📝",
         }.get(entity.entity_type, "📋")
 
-        status_emoji = {
-            "active": "🔵",
-            "completed": "✅",
-            "in_progress": "🟡",
-            "deleted": "🗑️",
-        }.get(entity.status.value, "🔵")
+        # Only show status emoji if status is set
+        status_emoji = ""
+        if entity.status:
+            status_map = {
+                "active": "🔵",
+                "completed": "✅", 
+                "in_progress": "🟡",
+                "deleted": "🗑️",
+                "archived": "📦",
+            }
+            status_emoji = status_map.get(entity.status.value, "")
 
-        # Build details column
-        details = []
+        # Build task description with category and due date inline
+        task_desc = entity.content
+        
+        # Add category if present
+        if hasattr(entity, 'category') and entity.category:
+            task_desc += f" `[{entity.category}]`"
+        
+        # Add due date if present
         if isinstance(entity, Task) and entity.due_date:
-            details.append(f"Due: {_format_datetime_short(entity.due_date)}")
+            task_desc += f" 📅 {_format_datetime_short(entity.due_date)}"
         elif isinstance(entity, Event):
-            details.append(f"{_format_datetime_short(entity.start_datetime)}")
+            task_desc += f" 📅 {_format_datetime_short(entity.start_datetime)}"
         elif isinstance(entity, Reminder):
-            details.append(f"{_format_datetime_short(entity.trigger_datetime)}")
-
-        details_text = "<br>".join(details) if details else ""
-
+            task_desc += f" ⏰ {_format_datetime_short(entity.trigger_datetime)}"
+        
         lines.append(
-            f"| `{entity.pseudo_id}` | {type_emoji} {entity.entity_type.value} | {status_emoji} {entity.status.value} | {entity.content} | {details_text} |"
+            f"| `{entity.pseudo_id}` | {status_emoji} | {type_emoji} {task_desc} |"
         )
 
     return "\n".join(lines)

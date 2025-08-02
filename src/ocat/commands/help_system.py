@@ -139,6 +139,12 @@ Use `/help <section>` to get detailed information:
 - **`/forget <query>`** - Remove stored information
 - **`/recall [query]`** - Search stored memories
 
+## ✅ **Productivity**
+- **`/st [category]`** - Show all open tasks, optionally filter by category
+- **`/st priority:<priority>`** - Show tasks by priority (urgent/high/medium/low)
+- **`/list`** - Show all lists with item counts
+- **`/list <listname>`** - Show items in specific list
+
 ## ⌨️ **Keyboard Shortcuts**
 - **`Ctrl+C`** - Interrupt current operation
 - **`Ctrl+D`** - Exit application
@@ -236,10 +242,29 @@ forget memory001
 - **Categorization** and **tagging**
 - **Timestamped entries** for tracking
 
+## 📝 **Lists**
+Organize collections of items in categorized lists.
+
+### Examples:
+```
+add "groceries: milk, bread, eggs" to shopping list
+create list item "read 1984" in books list
+add item "visit Paris" to travel bucket list
+archive list001
+show all lists
+show items in shopping list
+```
+
+### Features:
+- **Named lists** - group related items together
+- **Categories** for organization within lists
+- **Archive items** instead of deleting
+- **Date tracking** - see when items were added
+
 ## 🔍 **Management Commands**
 ```
 # List entities
-list tasks, list events, list reminders, list memories
+list tasks, list events, list reminders, list memories, list items
 
 # Search and filter  
 show completed tasks
