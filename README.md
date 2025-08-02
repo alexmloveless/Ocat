@@ -19,18 +19,17 @@ An interactive LLM Chat CLI tool that provides a beautiful command-line interfac
 
 ## Installation
 
-### Using Poetry (Recommended)
+### Using Docker (Recommended)
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd ocat
+# Build the Docker image
+docker compose build
 
-# Install dependencies
-poetry install
+# Run the application in production mode
+docker compose run --rm ocat
 
-# Run the application
-poetry run ocat
+# Or in development mode with live reload
+docker compose up ocat-dev
 ```
 
 ### Using pip
@@ -64,6 +63,31 @@ ocat
    🐱 > show my tasks for this week
    🐱 > mark task001 as completed
    ```
+
+## Running with Docker
+
+Your app and data will persist across containers using Docker volumes:
+
+- **ocat_vectors**: Mounted at `/app/vector_stores`
+- **ocat_config**: User configuration stored at `/home/ocat/.ocat`
+
+### Configuration & Environment
+
+- **.env File**:
+  - Copy `.env.sample` to `.env` and add your API keys.
+  - Override default settings as needed (OCAT_*).
+
+- **docker/entrypoint.sh**:
+  - Automatically sets defaults and creates directories if absent.
+
+### Non-Interactive Vector Store Operations
+
+Run vector store commands directly in headless mode:
+
+```bash
+docker compose run --rm ocat-headless --add-to-vector-store document.txt
+docker compose run --rm ocat-headless --query-vector-store "query"
+```
 
 ## Configuration
 

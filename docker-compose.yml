@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Production service
+  ocat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prod
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    volumes:
+      - ocat_vectors:/app/vector_stores
+      - ocat_config:/home/ocat/.ocat
+    environment:
+      - OCAT_VECTOR_STORE_PATH=/app/vector_stores/default
+    profiles:
+      - production
+
+  # Development service
+  ocat-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    volumes:
+      - ocat_vectors_dev:/app/vector_stores
+      - ocat_config_dev:/home/ocat/.ocat
+      # Mount source code for development
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
+    environment:
+      - OCAT_VECTOR_STORE_PATH=/app/vector_stores/default
+      - OCAT_LOG_LEVEL=DEBUG
+    profiles:
+      - development
+
+  # Standalone service for headless operations
+  ocat-headless:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prod
+    env_file:
+      - .env
+    volumes:
+      - ocat_vectors:/app/vector_stores
+      - ocat_config:/home/ocat/.ocat
+    environment:
+      - OCAT_VECTOR_STORE_PATH=/app/vector_stores/default
+    profiles:
+      - headless
+
+volumes:
+  # Production volumes
+  ocat_vectors:
+    driver: local
+  ocat_config:
+    driver: local
+  
+  # Development volumes (separate from production)
+  ocat_vectors_dev:
+    driver: local
+  ocat_config_dev:
+    driver: local

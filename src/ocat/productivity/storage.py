@@ -449,8 +449,10 @@ class ProductivityStorage:
 
                 # Apply updates
                 entity_dict = entity.model_dump()
+                old_status = entity_dict.get("status")
                 entity_dict.update(updates)
                 entity_dict["updated_at"] = datetime.now()
+                new_status = entity_dict.get("status")
 
                 # Create updated entity
                 # Remove entity_type from dict since it's passed as first arg
@@ -458,6 +460,9 @@ class ProductivityStorage:
                 entity_dict_clean.pop('entity_type', None)
                 updated_entity = create_entity(entity.entity_type, **entity_dict_clean)
                 updated_entity.pseudo_id = pseudo_id  # Preserve pseudo ID
+                
+                # Debug: Check if status actually changed
+                final_status = updated_entity.status.value if updated_entity.status else None
 
                 # Get exchange ID - need to search through vector store
                 exchange_id = self._pseudo_id_map.get(pseudo_id)
@@ -582,10 +587,12 @@ class ProductivityStorage:
 
                                     entity = self._metadata_to_entity(metadata, doc)
 
-                                    if entity and (
-                                        not status or entity.status == status
-                                    ):
-                                        entities.append(entity)
+                                    if entity:
+                                        # When status param is None, include all entities
+                                        # When status param is set, only include matching entities  
+                                        include_entity = (status is None) or (entity.status == status)
+                                        if include_entity:
+                                            entities.append(entity)
 
                                         if len(entities) >= limit:
                                             break
@@ -610,8 +617,13 @@ class ProductivityStorage:
 
                                 entity = self._metadata_to_entity(metadata, doc)
 
-                                if entity and (not status or entity.status == status):
-                                    entities.append(entity)
+                                # Debug: Check what's happening with status filtering
+                                if entity:
+                                    # When status param is None, include all entities
+                                    # When status param is set, only include matching entities
+                                    include_entity = (status is None) or (entity.status == status)
+                                    if include_entity:
+                                        entities.append(entity)
 
                                     if len(entities) >= limit:
                                         break
@@ -638,7 +650,7 @@ class ProductivityStorage:
         entity_type : EntityType
             The type of entities to retrieve
         status : Optional[EntityStatus]
-            Filter by status (default: active only)
+            Filter by status (None means all statuses)
         limit : int
             Maximum number of results
 

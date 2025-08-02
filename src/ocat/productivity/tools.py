@@ -278,7 +278,7 @@ async def get_entity_by_id(ctx: RunContext[ProductivityStorage], entity_id: str)
 async def update_entity(
     ctx: RunContext[ProductivityStorage], request: EntityUpdateRequest
 ) -> str:
-    """Update an existing entity by its ID."""
+    """Update an existing entity (task, event, reminder, memory, or list item) by its ID. Can update status, content, category, tags, and entity-specific fields."""
     try:
         # Get the existing entity first
         entity = ctx.deps.get_entity_by_pseudo_id(request.pseudo_id)
@@ -556,6 +556,39 @@ async def list_items(
 
     except Exception as e:
         raise ModelRetry(f"Failed to list items: {str(e)}. Please try again.")
+
+
+@productivity_agent.tool
+async def update_list_item_status(
+    ctx: RunContext[ProductivityStorage], item_id: str, status: str
+) -> str:
+    """Update the status of a specific list item (active, completed, in_progress, archived, deleted)."""
+    try:
+        # Check if it's a list item
+        entity = ctx.deps.get_entity_by_pseudo_id(item_id)
+        if not entity:
+            return f"No entity found with ID '{item_id}'."
+
+        if not isinstance(entity, ListItem):
+            return f"{item_id} is not a list item. Only list items can have their status updated."
+
+        # Update status - debug what's happening
+        update_data = {"status": status}
+        success = ctx.deps.update_entity(item_id, update_data)
+
+        if success:
+            # Get the updated entity to verify the change
+            updated_entity = ctx.deps.get_entity_by_pseudo_id(item_id)
+            if updated_entity:
+                actual_status = updated_entity.status.value if updated_entity.status else "None"
+                return f"Updated list item {item_id} status from '{entity.status.value if entity.status else 'None'}' to '{actual_status}': {entity.content}"
+            else:
+                return f"Updated list item {item_id} status to '{status}': {entity.content}"
+        else:
+            return f"Failed to update list item {item_id} status to '{status}'. Please try again."
+
+    except Exception as e:
+        raise ModelRetry(f"Failed to update list item status: {str(e)}")
 
 
 @productivity_agent.tool

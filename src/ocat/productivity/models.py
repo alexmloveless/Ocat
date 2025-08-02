@@ -45,7 +45,7 @@ class BaseEntity(BaseModel):
     entity_type: EntityType = Field(description="Type of entity")
     content: str = Field(description="Main text content describing the entity")
     status: Optional[EntityStatus] = Field(
-        default=None, description="Current status (optional)"
+        default=EntityStatus.ACTIVE, description="Current status (defaults to active)"
     )
     created_at: datetime = Field(
         default_factory=datetime.now, description="Creation timestamp"

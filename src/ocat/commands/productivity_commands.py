@@ -15,7 +15,7 @@ from rich.table import Table
 
 @command(
     name="st",
-    description="Show tasks - /st for all open tasks, /st <category> for tasks in category, /st priority:<priority> for tasks by priority",
+    description="Show open tasks (active & in-progress) - /st for all open tasks, /st <category> for tasks in category, /st priority:<priority> for tasks by priority",
     usage="/st [category|priority:<high|medium|low|urgent>]",
     aliases=["show-tasks", "tasks"],
 )
@@ -56,12 +56,18 @@ class ShowTasksCommand(BaseCommand):
                 else:
                     category_filter = arg_str
             
-            # Get active tasks
-            tasks = storage.get_entities_by_type(
+            # Get open tasks (both active and in-progress)
+            active_tasks = storage.get_entities_by_type(
                 EntityType.TASK, 
                 status=EntityStatus.ACTIVE,
                 limit=50
             )
+            in_progress_tasks = storage.get_entities_by_type(
+                EntityType.TASK, 
+                status=EntityStatus.IN_PROGRESS,
+                limit=50
+            )
+            tasks = active_tasks + in_progress_tasks
             
             # Filter by category if specified
             if category_filter:
@@ -81,20 +87,20 @@ class ShowTasksCommand(BaseCommand):
                 
             if not tasks:
                 if category_filter:
-                    message = f"No active tasks found in category '{category_filter}'"
+                    message = f"No open tasks found in category '{category_filter}'"
                 elif priority_filter:
-                    message = f"No active tasks found with priority '{priority_filter}'"
+                    message = f"No open tasks found with priority '{priority_filter}'"
                 else:
-                    message = "No active tasks found"
+                    message = "No open tasks found"
                 context.console.print(message, style="yellow")
                 return CommandResult.ok(message)
             
             # Create Rich table
-            title = f"Active Tasks ({len(tasks)})"
+            title = f"Open Tasks ({len(tasks)})"
             if category_filter:
-                title = f"Active Tasks - {category_filter} ({len(tasks)})"
+                title = f"Open Tasks - {category_filter} ({len(tasks)})"
             elif priority_filter:
-                title = f"Active Tasks - {priority_filter.title()} Priority ({len(tasks)})"
+                title = f"Open Tasks - {priority_filter.title()} Priority ({len(tasks)})"
                 
             table = Table(title=title)
             table.add_column("ID", style="cyan", no_wrap=True)
@@ -241,17 +247,19 @@ class ShowListsCommand(BaseCommand):
                 
                 # Add rows
                 for item in filtered_items:
-                    # Status emoji - only show if status is set
-                    status_emoji = ""
+                    # Status emoji
+                    status_map = {
+                        "active": "🔵",
+                        "archived": "📦", 
+                        "completed": "✅",
+                        "in_progress": "🟡",
+                        "deleted": "🗑️",
+                    }
                     if item.status:
-                        status_map = {
-                            "active": "🔵",
-                            "archived": "📦",
-                            "completed": "✅",
-                            "in_progress": "🟡",
-                            "deleted": "🗑️",
-                        }
-                        status_emoji = status_map.get(item.status.value, "")
+                        status_emoji = status_map.get(item.status.value, "⚪")
+                    else:
+                        # Default emoji for items with no status
+                        status_emoji = "⚪"
                     
                     # Category with color coding
                     category = ""
