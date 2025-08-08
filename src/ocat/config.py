@@ -118,6 +118,15 @@ class VectorStoreConfig(BaseModel):
         gt=0,
         description="Number of recent exchanges to include in context search query",
     )
+    memory_threshold: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="Threshold for including memories in context (0.0-1.0)",
+    )
+    memory_results: int = Field(
+        default=3, gt=0, description="Maximum number of memories to include in context"
+    )
 
 
 class EmbeddingConfig(BaseModel):

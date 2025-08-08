@@ -6,7 +6,7 @@ with validation and serialization capabilities.
 """
 
 from datetime import datetime, date, time
-from typing import Optional, List, Dict, Any, Literal, Union
+from typing import Optional, List, Dict, Any, Literal
 from enum import Enum
 import re
 from dateutil import parser as date_parser
@@ -104,7 +104,7 @@ class Task(BaseEntity):
     category: Optional[str] = Field(None, description="Task category or project")
     tags: List[str] = Field(default_factory=list, description="Task tags")
     priority: Optional[Literal["low", "medium", "high", "urgent"]] = Field(
-        None, description="Task priority"
+        "medium", description="Task priority"
     )
 
     @field_validator("due_date", mode="before")
@@ -286,7 +286,7 @@ class ListItem(BaseEntity):
 
 
 # Union type for all entity types
-ProductivityEntity = Union[Task, Event, Reminder, Memory, ListItem]
+ProductivityEntity = Task | Event | Reminder | Memory | ListItem
 
 
 def create_entity(entity_type: EntityType, **kwargs) -> ProductivityEntity:

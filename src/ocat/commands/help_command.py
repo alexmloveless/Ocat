@@ -12,10 +12,10 @@ from .help_system import get_help_content
 
 
 @command(
-    name="help", 
-    description="Show help information. Use /help <section> for specific topics.", 
-    usage="/help [section]", 
-    aliases=["h"]
+    name="help",
+    description="Show help information. Use /help <section> for specific topics.",
+    usage="/help [section]",
+    aliases=["h"],
 )
 class HelpCommand(BaseCommand):
     """
@@ -40,16 +40,18 @@ class HelpCommand(BaseCommand):
         """
         # Determine which section to show
         section = args[0] if args else None
-        
+
         # Get help content
         help_content = get_help_content(section)
-        
+
         # Display as formatted markdown
         markdown = Markdown(help_content)
         context.console.print(markdown)
 
         # Return appropriate message
         if section:
-            return CommandResult.ok(message=f"Help for '{section}' displayed successfully.")
+            return CommandResult.ok(
+                message=f"Help for '{section}' displayed successfully."
+            )
         else:
             return CommandResult.ok(message="Help overview displayed successfully.")

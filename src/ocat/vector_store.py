@@ -275,6 +275,7 @@ class ConversationVectorStore:
         query_text: str,
         n_results: int = 5,
         exclude_thread_id: Optional[str] = None,
+        exclude_memories: bool = False,
     ) -> List[Exchange]:
         """
         Find exchanges similar to the given query text using ChromaDB.
@@ -287,6 +288,8 @@ class ConversationVectorStore:
             Number of similar exchanges to return
         exclude_thread_id : Optional[str]
             Thread ID to exclude from results (current conversation)
+        exclude_memories : bool, default=False
+            Whether to exclude productivity memories from results
 
         Returns
         -------
@@ -318,6 +321,15 @@ class ConversationVectorStore:
                     if exclude_thread_id and exchange.thread_id == exclude_thread_id:
                         continue
 
+                    # Exclude memories if specified
+                    if exclude_memories:
+                        # Check if this is a productivity memory
+                        result_metadata = results.get("metadatas", [[]])[0]
+                        if i < len(result_metadata):
+                            metadata = result_metadata[i] or {}
+                            if metadata.get("entity_type") == "memory":
+                                continue
+
                     similar_exchanges.append(exchange)
 
                     if len(similar_exchanges) >= n_results:
@@ -332,6 +344,76 @@ class ConversationVectorStore:
         except Exception as e:
             self.logger.error(f"Failed to find similar exchanges: {e}")
             raise VectorStoreError(f"Failed to find similar exchanges: {e}")
+
+    def find_relevant_memories(
+        self,
+        query_text: str,
+        n_results: int = 3,
+        similarity_threshold: float = 0.7,
+    ) -> List[Exchange]:
+        """
+        Find memories relevant to the given query text.
+
+        Parameters
+        ----------
+        query_text : str
+            Text to find relevant memories for
+        n_results : int, default=3
+            Maximum number of memories to return
+        similarity_threshold : float, default=0.7
+            Minimum similarity score for inclusion
+
+        Returns
+        -------
+        List[Exchange]
+            List of relevant memory exchanges, sorted by similarity
+
+        Raises
+        ------
+        VectorStoreError
+            If memory search fails
+        """
+        try:
+            if len(self.metadata) == 0:
+                return []
+
+            # Query ChromaDB for similar exchanges
+            results = self.collection.query(
+                query_texts=[query_text], n_results=n_results * 3  # Get more to filter
+            )
+
+            # Filter for memories only and apply threshold
+            relevant_memories = []
+            distances = results.get("distances", [[]])[0]
+            result_metadata = results.get("metadatas", [[]])[0]
+
+            for i, exchange_id in enumerate(results["ids"][0]):
+                if exchange_id in self.metadata:
+                    # Check if this is a productivity memory
+                    if i < len(result_metadata):
+                        metadata = result_metadata[i] or {}
+                        if metadata.get("entity_type") == "memory":
+                            # Check similarity threshold (ChromaDB uses distance, so lower is better)
+                            if i < len(distances):
+                                similarity = (
+                                    1.0 - distances[i]
+                                )  # Convert distance to similarity
+                                if similarity >= similarity_threshold:
+                                    exchange = self.metadata[exchange_id]
+                                    relevant_memories.append(exchange)
+
+                    if len(relevant_memories) >= n_results:
+                        break
+
+            self.logger.debug(
+                f"Found {len(relevant_memories)} relevant memories for query"
+            )
+
+            return relevant_memories
+
+        except Exception as e:
+            self.logger.error(f"Failed to find relevant memories: {e}")
+            raise VectorStoreError(f"Failed to find relevant memories: {e}")
 
     def get_exchange_by_id(self, exchange_id: str) -> Optional[Exchange]:
         """
@@ -430,8 +512,22 @@ class ConversationVectorStore:
         Dict[str, Any]
             Dictionary containing vector store statistics
         """
+        # Count productivity vs conversation exchanges
+        productivity_count = 0
+        conversation_count = 0
+
+        for exchange in self.metadata.values():
+            # Check if this is a productivity entity (has entity_type in metadata)
+            metadata = getattr(exchange, "metadata", {})
+            if isinstance(metadata, dict) and "entity_type" in metadata:
+                productivity_count += 1
+            else:
+                conversation_count += 1
+
         return {
             "total_exchanges": len(self.metadata),
+            "conversation_exchanges": conversation_count,
+            "productivity_exchanges": productivity_count,
             "collection_count": self.collection.count(),
             "store_path": str(self.store_path),
             "dimension": self.dimension,
@@ -635,9 +731,11 @@ class ConversationVectorStore:
         try:
             # Use regular similarity search as primary method
             # Enhanced with smart pruning for token optimization
+            # Exclude memories since they'll be handled separately
             similar_exchanges = self.find_similar_exchanges(
                 query_text,
                 self.config.vector_store.context_results * 2,  # Get more for filtering
+                exclude_memories=True,
             )
 
             # Apply smart pruning for context length

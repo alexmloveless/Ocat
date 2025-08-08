@@ -20,6 +20,8 @@ vector_store:
   chat_window: 3                     # Number of recent exchanges to use for context queries
   context_results: 5                 # Number of similar exchanges to return for context
   search_context_window: 3           # Number of recent exchanges to include in context search query
+  memory_threshold: 0.5              # Threshold for including memories in context (0.0-1.0)
+  memory_results: 3                  # Maximum number of memories to include in context
 
 # Embedding Configuration
 embedding:

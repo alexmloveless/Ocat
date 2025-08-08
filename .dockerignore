@@ -63,14 +63,11 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
-vector_stores/
 local_config/
 *.log
 
 # Documentation
-README.md
 CHANGELOG.md
-docs/
 
 # Docker
 docker-compose.override.yml

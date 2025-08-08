@@ -9,6 +9,7 @@ import re
 from typing import Optional, TYPE_CHECKING
 from .tools import productivity_agent
 from .storage import ProductivityStorage
+from .memory_suggester import MemorySuggester
 
 if TYPE_CHECKING:
     from ..chat import ChatSession
@@ -33,6 +34,9 @@ class ProductivityIntegration:
             The productivity storage instance
         """
         self.storage = storage
+
+        # Initialize memory suggester for proactive memory management
+        self.memory_suggester = MemorySuggester(storage)
 
         # Keywords that indicate productivity intent
         self.productivity_keywords = {
@@ -219,6 +223,12 @@ class ProductivityIntegration:
             if chat_session.logger:
                 chat_session.logger.error(f"Productivity agent error: {e}")
 
+            # Also print to console for debugging
+            print(f"Productivity agent error: {e}")
+            import traceback
+
+            traceback.print_exc()
+
             # Return a helpful error message
             return (
                 "I encountered an issue processing your productivity request. "
@@ -249,6 +259,49 @@ the system will automatically route these to specialized productivity tools for 
 
 You should acknowledge productivity actions and provide helpful context about what was created or updated.
 """
+
+    def maybe_extract_memory_fact(self, user_msg: str) -> Optional[str]:
+        """
+        Extract a fact from user message that might be worth remembering.
+
+        Parameters
+        ----------
+        user_msg : str
+            The user's message to analyze
+
+        Returns
+        -------
+        Optional[str]
+            The fact to suggest storing, or None if no suggestion should be made
+        """
+        return self.memory_suggester.should_suggest(user_msg)
+
+    def store_memory(self, fact: str) -> str:
+        """
+        Store a fact as a memory in the productivity system.
+
+        Parameters
+        ----------
+        fact : str
+            The fact to store
+
+        Returns
+        -------
+        str
+            The pseudo-ID of the created memory
+        """
+        from .models import Memory  # Local import to avoid circular dependency
+        from datetime import datetime
+
+        memory = Memory(
+            pseudo_id=f"memory{len(self.storage.search_entities('', limit=1000)) + 1:03d}",
+            content=fact,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            category=None,
+        )
+        pseudo_id = self.storage.create_entity(memory)
+        return pseudo_id
 
 
 def create_productivity_integration(

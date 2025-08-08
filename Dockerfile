@@ -1,5 +1,5 @@
-# Multi-stage Dockerfile for Ocat
-FROM python:3.12-slim as base
+# Simpler Dockerfile for Ocat without multi-stage
+FROM python:3.12-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -25,34 +25,18 @@ ENV POETRY_NO_INTERACTION=1 \
 # Set work directory
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml poetry.lock ./
-
-# Development stage
-FROM base as dev
-# Install all dependencies including dev dependencies
-RUN poetry install && rm -rf $POETRY_CACHE_DIR
-
-# Copy source code
+# Copy all files
 COPY . .
 
-# Set entrypoint for development
-ENTRYPOINT ["poetry", "run", "ocat"]
-
-# Production stage
-FROM base as prod
-# Install only main dependencies
+# Install dependencies and the project
 RUN poetry install --only=main && rm -rf $POETRY_CACHE_DIR
 
 # Create non-root user
 RUN groupadd -r ocat && useradd -r -g ocat ocat
 
-# Copy source code
-COPY --chown=ocat:ocat . .
-
 # Create directories for volumes
 RUN mkdir -p /app/vector_stores /home/ocat/.ocat && \
-    chown -R ocat:ocat /app/vector_stores /home/ocat/.ocat
+    chown -R ocat:ocat /app/vector_stores /home/ocat/.ocat /app
 
 # Switch to non-root user
 USER ocat
@@ -64,12 +48,6 @@ ENV OCAT_VECTOR_STORE_PATH=/app/vector_stores/default \
 # Disable ChromaDB telemetry and tokenizers parallelism
 ENV ANONYMIZED_TELEMETRY=False \
     TOKENIZERS_PARALLELISM=false
-
-# Add labels
-LABEL org.opencontainers.image.title="Ocat" \
-      org.opencontainers.image.description="Interactive LLM Chat CLI tool" \
-      org.opencontainers.image.version="0.3.0" \
-      org.opencontainers.image.authors="Alex Loveless <alex@alexloveless.uk>"
 
 # Set entrypoint
 ENTRYPOINT ["poetry", "run", "ocat"]

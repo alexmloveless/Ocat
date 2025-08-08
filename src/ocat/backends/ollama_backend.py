@@ -1,38 +1,38 @@
 """
-OpenAI backend implementation for Ocat LLM integration.
+Ollama backend implementation for Ocat LLM integration.
 
-This module provides the OpenAI-specific implementation of the LLMBackend interface,
-using the langchain-openai package for API interactions.
+This module provides the Ollama-specific implementation of the LLMBackend interface,
+using the langchain-ollama package for local model interactions.
 """
 
 import os
-from typing import AsyncIterator, Dict, List
-from langchain_openai import ChatOpenAI
+from typing import AsyncIterator, Dict, List, Optional
+from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from . import LLMBackend
 from ..exceptions import LLMError
 
 
-class OpenAIBackend(LLMBackend):
+class OllamaBackend(LLMBackend):
     """
-    OpenAI backend implementation using langchain-openai.
+    Ollama backend implementation using langchain-ollama.
 
     Parameters
     ----------
     model : str
-        The OpenAI model name (e.g., 'gpt-4o-mini', 'gpt-4').
+        The Ollama model name (e.g., 'llama3.2', 'mistral', 'codellama').
     temperature : float
         Controls randomness in responses (0.0-1.0).
     max_tokens : int
         Maximum number of tokens in the response.
-    api_key : str, optional
-        OpenAI API key. If not provided, will use OPENAI_API_KEY environment variable.
+    base_url : str, optional
+        Ollama server URL. Defaults to http://localhost:11434.
 
     Raises
     ------
     LLMError
-        If API key is not provided or invalid.
+        If Ollama server is not accessible or model initialization fails.
     """
 
     def __init__(
@@ -40,29 +40,23 @@ class OpenAIBackend(LLMBackend):
         model: str,
         temperature: float = 1.0,
         max_tokens: int = 4000,
-        api_key: str = None,
+        base_url: Optional[str] = None,
+        **kwargs,
     ):
-        # Use provided API key or fall back to environment variable
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise LLMError(
-                "OpenAI API key not provided. Set OPENAI_API_KEY environment variable "
-                "or pass api_key parameter."
-            )
-
-        # GPT-5 only supports temperature=1.0
-        if "gpt-5" in model.lower() and temperature != 1.0:
-            temperature = 1.0
+        # Use provided base URL or default to localhost
+        self.base_url = base_url or os.getenv(
+            "OLLAMA_BASE_URL", "http://localhost:11434"
+        )
 
         try:
-            self.llm = ChatOpenAI(
+            self.llm = ChatOllama(
                 model=model,
                 temperature=temperature,
-                max_tokens=max_tokens,
-                api_key=self.api_key,
+                num_predict=max_tokens,
+                base_url=self.base_url,
             )
         except Exception as e:
-            raise LLMError(f"Failed to initialize OpenAI backend: {e}")
+            raise LLMError(f"Failed to initialize Ollama backend: {e}")
 
     def _convert_messages(self, messages: List[Dict]) -> List:
         """
@@ -97,7 +91,7 @@ class OpenAIBackend(LLMBackend):
 
     async def generate_response(self, messages: List[Dict]) -> str:
         """
-        Generate a complete response from OpenAI.
+        Generate a complete response from Ollama.
 
         Parameters
         ----------
@@ -119,13 +113,13 @@ class OpenAIBackend(LLMBackend):
             response = await self.llm.ainvoke(langchain_messages)
             return response.content
         except Exception as e:
-            raise LLMError(f"OpenAI API call failed: {e}")
+            raise LLMError(f"Ollama API call failed: {e}")
 
     async def generate_streaming_response(
         self, messages: List[Dict]
     ) -> AsyncIterator[str]:
         """
-        Generate a streaming response from OpenAI.
+        Generate a streaming response from Ollama.
 
         Parameters
         ----------
@@ -148,4 +142,4 @@ class OpenAIBackend(LLMBackend):
                 if chunk.content:
                     yield chunk.content
         except Exception as e:
-            raise LLMError(f"OpenAI streaming API call failed: {e}")
+            raise LLMError(f"Ollama streaming API call failed: {e}")

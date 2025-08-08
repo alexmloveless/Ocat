@@ -11,6 +11,7 @@ from dataclasses import dataclass
 @dataclass
 class HelpSection:
     """Represents a help section with markdown content."""
+
     title: str
     content: str
     aliases: List[str] = None
@@ -22,26 +23,26 @@ class HelpSection:
 
 class HelpRegistry:
     """Registry for organizing and managing help content."""
-    
+
     def __init__(self):
         self._sections: Dict[str, HelpSection] = {}
         self._initialize_help_content()
-    
+
     def register_section(self, key: str, section: HelpSection) -> None:
         """Register a help section."""
         self._sections[key] = section
         # Also register aliases
         for alias in section.aliases:
             self._sections[alias] = section
-    
+
     def get_section(self, key: str) -> Optional[HelpSection]:
         """Get a help section by key or alias."""
         return self._sections.get(key.lower())
-    
+
     def get_overview(self) -> str:
         """Get the main help overview."""
         return self._generate_overview()
-    
+
     def list_sections(self) -> List[str]:
         """List all available section keys (excluding aliases)."""
         seen = set()
@@ -51,453 +52,384 @@ class HelpRegistry:
                 sections.append(key)
                 seen.add(section)
         return sorted(sections)
-    
+
     def _initialize_help_content(self):
         """Initialize all help content sections."""
-        
+
         # Overview section
         overview = HelpSection(
             title="Ocat Help Overview",
             content="""# 🐱 **Ocat** - AI Chat Assistant
 
-**Ocat** is an intelligent chat assistant with powerful productivity features and file management capabilities.
-
-## 🎯 **Quick Start**
-- **Chat naturally** with AI models (OpenAI, Anthropic, Google)
-- **Use slash commands** like `/help`, `/clear`, `/exit` for quick actions
-- **Manage productivity** with tasks, events, reminders, and memories
-- **Work with files** using built-in file operations and location aliases
-- **AI has direct tool access** - ask it to read files, manage tasks, and more!
+**Ocat** is an intelligent chat assistant with productivity features and file management.
 
 ## 📚 **Help Sections**
-Use `/help <section>` to get detailed information:
+- `/help commands` - All slash commands
+- `/help productivity` - Tasks, lists, and memory management
+- `/help files` - File operations and location aliases
+- `/help chat` - Chat features and conversation management
+- `/help config` - Configuration and setup
+- `/help tips` - Usage tips and best practices
 
-- **`/help commands`** - All available slash commands
-- **`/help productivity`** - Task, event, reminder & memory management
-- **`/help files`** - File operations and location aliases  
-- **`/help chat`** - Chat features and conversation management
-- **`/help config`** - Configuration and setup options
-- **`/help tips`** - Usage tips and best practices
-
-## 🚀 **Examples**
+## 🚀 **Quick Examples**
 ```
-# Slash commands
-/help productivity     # Learn about task management
-/file read myfile.txt  # Direct file operations
-
-# Natural AI requests (AI has tool access!)
-"read myfile.txt and summarize the key points"
-"create a task to review quarterly report due Friday"
-"show me what's in the docs directory"
-"remember client prefers morning meetings"
+/st                    # Show open tasks
+/file read config.yaml # Read a file
+/locations             # Show location aliases
+"create a task to review the report due Friday"
+"what files are in my current directory?"
 ```
-
-*Type `/help <section>` for detailed documentation on any area.*
 """,
-            aliases=["overview", "main"]
+            aliases=["overview", "main"],
         )
         self.register_section("overview", overview)
-        
+
         # Commands section
         commands = HelpSection(
             title="Slash Commands Reference",
             content="""# 🔧 **Slash Commands**
 
 ## 📋 **Core Commands**
-- **`/help [section]`** - Show help (try `/help productivity`)
-- **`/clear`** - Clear screen and show welcome message  
-- **`/exit`, `/quit`, `/q`** - Exit the application
-- **`/history [limit]`** - Show conversation history
-- **`/context`** - Display current conversation context
+- `/help [section]` - Show help
+- `/clear` - Clear conversation history
+- `/exit`, `/quit`, `/q` - Exit
+- `/history [n]` - Show chat history
+- `/showcontext [on|off|summary]` - Control context display
 
 ## 📁 **File Operations**
-- **`/file read <path>`** - Read and display file contents
-- **`/file write <path> <content>`** - Write content to file
-- **`/file append <path> <content>`** - Append content to file
-- **`/file list [path]`** - List directory contents
-- **`/file search <pattern> [path]`** - Search for files/content
-- **`/file tree [path] [depth]`** - Show directory tree structure
+- `/file read <path>` - Read and display file
+- `/file write <path> <content>` - Write content to file
+- `/file append <path> <content>` - Append to file
+- `/file list [path]` - List directory contents
+- `/file search <pattern> [path]` - Search files/content
+- `/file tree [path] [depth]` - Show directory tree
+- `/pwd` - Show current directory
+- `/cd <path>` - Change directory
+- `/ls [path]` - List directory (alias for `/file list`)
+- `/cat <path>` - Display file (alias for `/file read`)
+- `/mkdir <path>` - Create directory
+
+## 📎 **File Export/Attach**
+- `/attach <file1> [file2...]` - Attach up to 5 files as context
+- `/writecode <filepath>` - Extract code from last response
+- `/writejson <filepath>` - Export conversation to JSON
+- `/writemd <filepath>` - Export conversation to Markdown
+- `/writeresp <filepath> [format]` - Export last exchange
+- `/append <path> ["text"]` - Append text or last exchange
 
 ## 📍 **Location Aliases**
-- **`/locations`** - List all configured location aliases
-- **`/location add <alias> <path>`** - Add new location alias
-- **`/location remove <alias>`** - Remove location alias
-- Use **`alias:filename`** syntax in file commands
+- `/locations` - Show configured location aliases
+- Use `alias:filename` syntax in file commands
 
-## 📋 **Clipboard Operations**
-- **`/copy`** - Copy last assistant response to clipboard
-- **`/paste`** - Paste clipboard content into chat
-- **`/clip <text>`** - Copy specific text to clipboard
+## 📋 **Clipboard**
+- `/copy` - Copy last response to clipboard
 
-## 🗃️ **Vector Store Management**
-- **`/vector stats`** - Show vector store statistics  
-- **`/vector clear [collection]`** - Clear vector store data
-- **`/vector search <query>`** - Search vector store content
+## 🗃️ **Vector Store**
+- `/vadd <text>` - Add text to vector store
+- `/vdelete <id>` - Delete document by ID
+- `/vget <id|session|thread>` - Retrieve exchanges
+- `/vquery <query> [k]` - Query similar exchanges
+- `/vstats` - Show vector store statistics
 
-## 💭 **Memory & Context**
-- **`/remember <information>`** - Store information for later recall
-- **`/forget <query>`** - Remove stored information
-- **`/recall [query]`** - Search stored memories
+## 💭 **Memory & Productivity**
+- `/remember <type> <text>` - Store information
+- `/st [category|priority:<level>]` - Show open tasks
+- `/list [listname]` - Show lists/list items
 
-## ✅ **Productivity**
-- **`/st [category]`** - Show all open tasks, optionally filter by category
-- **`/st priority:<priority>`** - Show tasks by priority (urgent/high/medium/low)
-- **`/list`** - Show all lists with item counts
-- **`/list <listname>`** - Show items in specific list
-
-## ⌨️ **Keyboard Shortcuts**
-- **`Ctrl+C`** - Interrupt current operation
-- **`Ctrl+D`** - Exit application
-- **`↑/↓ arrows`** - Navigate command history
-- **`Tab`** - Command auto-completion (where available)
+## 🔧 **Model & Settings**
+- `/model <model_name>` - Change LLM model
+- `/showsys` - Show system prompt
+- `/loglevel <level>` - Set logging level
+- `/config` - Show configuration
+- `/delete [n]` - Remove recent exchanges
 """,
-            aliases=["cmd", "command", "slash"]
+            aliases=["cmd", "command", "slash"],
         )
         self.register_section("commands", commands)
-        
+
         # Productivity section
         productivity = HelpSection(
             title="Productivity System Guide",
             content="""# 📊 **Productivity System**
 
-Manage your tasks, events, reminders, and memories using **natural language**.
-
-## 🎯 **Features**
-- **Natural language interface** - Just describe what you want
-- **Flexible date parsing** - "next Tuesday", "in 2 weeks", "tomorrow at 3pm"
-- **Pseudo IDs** - Easy references like `task001`, `event001`
-- **Vector storage** - Integrated with chat history for smart search
+Manage tasks, lists, and memories using natural language.
 
 ## ✅ **Tasks**
-Manage your to-do items with priorities, categories, and due dates.
+Create and manage to-do items with priorities and categories.
 
-### Examples:
+### Commands:
+- `/st` - Show all open tasks (active & in-progress)
+- `/st -s <field>` or `/st --sort=<field>` - Sort by: created, priority, category, due, id, status
+- `/st -o <asc|desc>` or `/st --order=<asc|desc>` - Sort order (default: desc for created, asc for others)
+- `/st -p <level>` or `/st --priority=<level>` - Filter by priority (urgent/high/medium/low)
+- `/st -c <name>` or `/st --category=<name>` - Filter by category
+- `/st -S <status>` or `/st --status=<status>` - Filter by status (active/in_progress/completed)
+
+### Legacy Syntax (still supported):
+- `/st <category>` - Show tasks in specific category  
+- `/st priority:<level>` - Show tasks by priority
+
+### Natural Language Examples:
 ```
-create a task to review the quarterly report
-add task: finish presentation slides due next Friday  
-make a high priority task to call client by tomorrow
-update task001 status to completed
-list all tasks due this week
-delete task003
-```
-
-### Features:
-- **Due dates** with flexible parsing
-- **Priority levels**: low, medium, high, urgent
-- **Categories** for organization  
-- **Status tracking**: active, in_progress, completed
-- **Tags** for additional classification
-
-## 📅 **Events**
-Schedule meetings, appointments, and time-based activities.
-
-### Examples:
-```
-add meeting with team on Friday at 2pm
-schedule doctor appointment next Tuesday at 10:30am
-create event: project deadline on December 15th
-update event002 location to conference room A
-list events for next week
+"create a task to review the quarterly report"
+"add high priority task to call client by tomorrow"
+"update task001 status to completed"
+"show me tasks for project-alpha"
 ```
 
-### Features:
-- **Start/end times** with flexible scheduling
-- **All-day events** supported
-- **Participants** and **location** tracking
-- **Multi-day events** for longer activities
-
-## ⏰ **Reminders**
-Set up notifications and memory aids.
-
-### Examples:
+### Command Examples:
 ```
-create reminder for next Tuesday to call Sam
-remind me to water plants every Monday
-set reminder: submit expense report by month end
-mark reminder001 as completed
-list active reminders
+/st                                  # All open tasks, newest first
+/st -s priority                      # Sort by priority (urgent first)
+/st -s due -o asc                    # Sort by due date, earliest first
+/st -p high                          # Only high priority tasks
+/st -c work -s due                   # Work tasks sorted by due date
+/st -S completed -s created          # Completed tasks, newest first
+
+# Long form also works:
+/st --sort=priority --order=desc     # Same as -s priority -o desc
+/st --category=work --priority=high  # Same as -c work -p high
 ```
 
 ### Features:
-- **Trigger dates/times** with natural language
-- **Categories** for organization
-- **Status tracking** and completion
-- **Recurring reminders** (planned feature)
-
-## 🧠 **Memories**
-Store important information and reference material.
-
-### Examples:
-```
-remember that Sarah prefers tea over coffee
-save memory: the wifi password is "SecureNet123"
-add to memory: client prefers morning meetings
-search memories for "password"
-forget memory001
-```
-
-### Features:
-- **Free-form text** storage
-- **Searchable content** across all memories
-- **Categorization** and **tagging**
-- **Timestamped entries** for tracking
+- Priority levels: urgent, high, medium, low
+- Categories for organization
+- Status tracking: active, in_progress, completed
+- Due dates with flexible parsing
+- Pseudo IDs (task001, task002, etc.)
 
 ## 📝 **Lists**
-Organize collections of items in categorized lists.
+Organize collections of items in named lists.
+
+### Commands:
+- `/list` - Show all lists with item counts
+- `/list <listname>` - Show items in specific list
 
 ### Examples:
 ```
-add "groceries: milk, bread, eggs" to shopping list
-create list item "read 1984" in books list
-add item "visit Paris" to travel bucket list
-archive list001
-show all lists
-show items in shopping list
+"add milk and bread to shopping list"
+"create list item 'read 1984' in books list"
+"add item 'visit Paris' to travel bucket list"
+"show items in shopping list"
 ```
 
 ### Features:
-- **Named lists** - group related items together
-- **Categories** for organization within lists
-- **Archive items** instead of deleting
-- **Date tracking** - see when items were added
+- Named lists group related items
+- Categories within lists
+- Archive items instead of deleting
+- Status tracking per item
 
-## 🔍 **Management Commands**
+## 🧠 **Memory**
+Store information for later recall.
+
+### Commands:
+- `/remember <type> <text>` - Store information
+
+### Examples:
 ```
-# List entities
-list tasks, list events, list reminders, list memories, list items
-
-# Search and filter  
-show completed tasks
-find events next week
-search reminders for "call"
-
-# Update and modify
-update task001 priority to high
-change event002 time to 3pm
-mark reminder001 completed
-
-# Delete
-delete task003, remove event001, forget memory002
+"remember that Sarah prefers tea over coffee"
+"save to memory: wifi password is SecureNet123"
+"remember client prefers morning meetings"
 ```
 
-## 📋 **Status Management**
-- **Tasks**: active → in_progress → completed → deleted
-- **Events**: scheduled → completed → cancelled  
-- **Reminders**: active → completed → deleted
-- **Memories**: active → deleted
+### Features:
+- Free-form text storage
+- Searchable across all content
+- Categorization and tagging
+- Timestamped entries
+
+## 🔍 **Natural Language Interface**
+All productivity features work through conversation:
+```
+"create a task to finish the presentation due Friday"
+"show me my high priority tasks"
+"add eggs to my shopping list"
+"what tasks do I have for next week?"
+```
 
 ## 💡 **Tips**
-- Use **natural language** - the system understands context
-- **Pseudo IDs** make referencing easy (task001, event002)
-- **Search** works across all productivity content
-- **Integration** with chat means your AI assistant knows your schedule
+- Use natural language - the AI understands context
+- Pseudo IDs make referencing easy (task001, list001)
+- Search works across all productivity content
+- AI integration means your assistant knows your schedule
 """,
-            aliases=["tasks", "events", "reminders", "memories", "productivity", "prod"]
+            aliases=[
+                "tasks",
+                "lists",
+                "memories",
+                "productivity",
+                "prod",
+            ],
         )
         self.register_section("productivity", productivity)
-        
+
         # Files section
         files = HelpSection(
-            title="File Operations Guide", 
+            title="File Operations Guide",
             content="""# 📁 **File Operations**
 
-Powerful file management capabilities with location aliases for easy access.
+File management with location aliases for easy access.
 
-## 📖 **File Commands**
+## 📖 **Basic File Commands**
 
-### **Reading Files**
+### **Read/Write/Edit**
 ```
-/file read myfile.txt
-/file read docs:readme.md    # Using location alias
-/file read /absolute/path/to/file.txt
-```
-
-### **Writing Files**
-```
-/file write newfile.txt "Hello, World!"
-/file write config:settings.json "{'debug': true}"
-```
-
-### **Appending to Files**
-```
-/file append logs:app.log "New log entry"
-/file append notes.txt "Additional notes"
+/file read myfile.txt              # Read file
+/file write notes.txt "Hello"      # Write to file
+/file append logs.txt "New entry"  # Append to file
 ```
 
 ### **Directory Operations**
 ```
-/file list                  # List current directory
-/file list src/             # List specific directory  
-/file list docs:            # List using location alias
-/file tree                  # Show directory tree
-/file tree src/ 2           # Tree with max depth 2
+/file list                # List current directory
+/file list src/           # List specific directory
+/file tree               # Show directory tree
+/file tree src/ 2        # Tree with max depth 2
+/pwd                     # Show current directory
+/cd <path>               # Change directory
+/mkdir <path>            # Create directory
 ```
 
-### **Search Operations**
+### **Search**
 ```
-/file search "function"     # Search for text in files
-/file search "class" src/   # Search in specific directory
-/file search "*.py"         # Search for file patterns
+/file search "function"     # Search text in files
+/file search "*.py"         # Search file patterns
+/file search "error" src/   # Search in directory
+```
+
+### **Aliases (shortcuts)**
+```
+/ls [path]    # Same as /file list
+/cat <path>   # Same as /file read
 ```
 
 ## 📍 **Location Aliases**
 
-Simplify file paths with custom aliases.
+Simplify paths with custom aliases configured in `ocat.yaml`:
 
-### **Managing Aliases**
-```
-/locations                          # List all aliases
-/location add docs ~/Documents      # Add alias
-/location add config ~/.config/app  # Add alias  
-/location remove old_alias          # Remove alias
-```
-
-### **Using Aliases**
-```
-# Instead of: /file read ~/Documents/readme.md
-/file read docs:readme.md
-
-# Instead of: /file list ~/.config/app/
-/file list config:
-
-# Works with all file commands
-/file write logs:debug.log "Debug info"
-/file search "error" logs:
+```yaml
+locations:
+  docs: "~/Documents"
+  config: "~/.config/app"
+  logs: "/var/log"
 ```
 
-## 🔗 **Filesystem Aliases**
-
-Convenient shortcuts for common filesystem commands:
-
+### **Usage**
 ```
-/ls [path]              # → /file list [path]
-/pwd                    # Show current working directory  
-/cd <path>              # Change working directory
-/cat <path>             # → /file read <path>
-/mkdir <path>           # Create directory
+/locations                      # Show all aliases
+/file read docs:readme.md       # Use alias
+/file list config:              # List alias directory
+```
+
+## 📎 **Export/Attach**
+
+### **Export Conversations**
+```
+/writejson chat.json       # Export to JSON
+/writemd chat.md           # Export to Markdown
+/writeresp last.md         # Export last exchange
+/writecode code.py         # Extract code blocks
+```
+
+### **File Attachment**
+```
+/attach file1.txt file2.py    # Attach files to chat
+/append notes.md "text"       # Append text to file
+/append notes.md              # Append last exchange
 ```
 
 ## 💡 **Tips**
-- **Tab completion** available for file paths (where supported)
-- **Relative paths** work from current directory
-- **Absolute paths** start with `/` (Unix) or `C:` (Windows)
-- **Aliases** make frequent paths much easier to use
-- **Wildcards** supported in search patterns
-- **Working directory** persists during your session
+- Use location aliases for frequently accessed paths
+- Working directory persists during session
+- File operations work with both absolute and relative paths
+- AI can directly read/search files through natural language
 """,
-            aliases=["file", "files", "location", "locations", "paths"]
+            aliases=["file", "files", "location", "locations", "paths"],
         )
         self.register_section("files", files)
-        
+
         # Chat section
         chat = HelpSection(
             title="Chat Features Guide",
             content="""# 💬 **Chat Features**
 
-Advanced conversation management and AI interaction capabilities.
+Conversation management and AI interaction.
 
 ## 🤖 **AI Models**
-Ocat supports multiple AI providers:
-
+Supports multiple AI providers:
 - **OpenAI**: GPT-4, GPT-3.5-turbo models
-- **Anthropic**: Claude-3 (Opus, Sonnet, Haiku)  
+- **Anthropic**: Claude-3 (Opus, Sonnet, Haiku)
 - **Google**: Gemini Pro models
 
 Configure in `ocat.yaml` or use environment variables.
 
 ## 🔧 **AI Tool Access**
-The AI has direct access to powerful tools and can:
+The AI can directly access tools through natural language:
 
 ### **File Operations**
-Ask the AI to work with files naturally:
 ```
-"read myfile.md and summarize the key points"
-"show me what's in the config directory"  
+"read config.yaml and explain the settings"
+"what files are in my current directory?"
 "search for Python files containing 'error'"
-"create a new file called notes.txt with today's agenda"
+"create a summary of the docs directory"
 ```
 
 ### **Productivity Management**
-Manage tasks, events, and reminders through conversation:
 ```
-"create a task to review the quarterly report due Friday"
-"schedule a meeting with the team next Tuesday at 2pm"
-"remind me to call the client tomorrow"
-"show me my tasks for this week"
+"create a task to review the report due Friday"
+"show me my high priority tasks"
+"add milk to my shopping list"
+"what do I have scheduled for next week?"
 ```
-
-The AI understands context and can chain operations together naturally.
 
 ## 🗣️ **Conversation Management**
 
-### **History**
+### **History & Context**
 ```
-/history           # Show recent conversation
-/history 20        # Show last 20 messages
-/context           # Display current context
-```
-
-### **Screen Control**
-```
-/clear             # Clear screen, show welcome
-/exit, /quit, /q   # Exit application
+/history [n]                    # Show chat history
+/showcontext [on|off|summary]   # Control context display
+/clear                          # Clear conversation history
 ```
 
-## 📋 **Clipboard Integration**
+### **Model Control**
 ```
-/copy              # Copy last AI response
-/paste             # Paste clipboard content
-/clip "text"       # Copy specific text
+/model <model_name>   # Change AI model
+/showsys              # Show system prompt
+/config               # Show configuration
 ```
 
-## 🧠 **Memory Integration**
-The chat system integrates with your productivity data:
+## 📋 **Clipboard & Export**
+```
+/copy                 # Copy last response
+/writejson chat.json  # Export conversation
+/writemd chat.md      # Export to Markdown
+```
 
-- **Context awareness** of your tasks and events
-- **Smart suggestions** based on your stored memories
-- **Seamless productivity** commands within conversation
-
-## ⌨️ **Input Methods**
-
-### **Text Input**
+## ⌨️ **Input & Navigation**
 - Type naturally and press Enter
-- Multi-line input supported
-- Rich text formatting in responses
-
-### **Command History**
-- **↑/↓ arrows** to navigate previous commands
-- **History persists** across sessions
-- **Smart filtering** of commands vs chat
-
-### **Interruption**
-- **Ctrl+C** to stop current AI response
-- **Ctrl+D** to exit application gracefully
-
-## 🎨 **Response Formatting**
-- **Markdown rendering** for rich content
-- **Syntax highlighting** for code blocks
-- **Tables and lists** properly formatted
-- **Color coding** for different content types
+- **↑/↓ arrows** navigate command history
+- **Ctrl+C** interrupts current response
+- **Ctrl+D** exits application
 
 ## 💡 **Tips**
-- **Mix natural chat** with slash commands seamlessly
-- **Ask about your productivity** data in conversation
-- **Use context** - the AI remembers your preferences
-- **Interrupt long responses** with Ctrl+C when needed
+- Mix natural chat with slash commands
+- AI remembers conversation context
+- Ask about your productivity data naturally
+- Use Ctrl+C to stop long responses
 """,
-            aliases=["conversation", "ai", "models", "chat"]
+            aliases=["conversation", "ai", "models", "chat"],
         )
         self.register_section("chat", chat)
-        
+
         # Config section
         config = HelpSection(
             title="Configuration Guide",
             content="""# ⚙️ **Configuration**
 
-Customize Ocat's behavior through configuration files and environment variables.
+Customize Ocat through configuration files and environment variables.
 
 ## 📄 **Configuration File**
-Main config: **`ocat.yaml`**
+Main config: `ocat.yaml`
 
 ### **Basic Structure**
 ```yaml
@@ -507,116 +439,64 @@ llm:
   model: "gpt-4"           # Model name
   api_key: "${OCAT_API_KEY}" # Environment variable
 
-# Chat Settings  
-chat:
-  max_history: 100         # Conversation history limit
-  auto_save: true          # Auto-save conversations
-  
-# Vector Store Settings
-vector_store:
-  collection_name: "ocat_main"
-  persist_directory: "./vector_stores"
-  
 # Location Aliases
 locations:
   docs: "~/Documents"
   config: "~/.config/ocat"
   logs: "/var/log/ocat"
+
+# Vector Store Settings
+vector_store:
+  collection_name: "ocat_main"
+  persist_directory: "./vector_stores"
 ```
 
 ## 🔑 **Environment Variables**
 
 ### **API Keys**
 ```bash
-export OCAT_API_KEY="your-api-key"          # Primary API key
-export OPENAI_API_KEY="your-openai-key"     # OpenAI specific
-export ANTHROPIC_API_KEY="your-claude-key"  # Anthropic specific  
-export GOOGLE_API_KEY="your-google-key"     # Google specific
+export OCAT_API_KEY="your-api-key"          # Primary key
+export OPENAI_API_KEY="your-openai-key"     # OpenAI
+export ANTHROPIC_API_KEY="your-claude-key"  # Anthropic
+export GOOGLE_API_KEY="your-google-key"     # Google
 ```
 
-### **Configuration Override**
+### **Configuration**
 ```bash
-export OCAT_CONFIG_PATH="/custom/path/ocat.yaml"
-export OCAT_LOG_LEVEL="DEBUG"               # Logging level
-export OCAT_VECTOR_PATH="/custom/vectors"   # Vector storage path
-```
-
-## 📂 **File Locations**
-
-### **Default Paths**
-```
-Config:        ~/.config/ocat/ocat.yaml
-Logs:          ~/.local/share/ocat/logs/
-Vector Store:  ~/.local/share/ocat/vectors/
-Cache:         ~/.cache/ocat/
-```
-
-### **Custom Locations**
-Override with environment variables or config file settings.
-
-## 🔧 **Advanced Settings**
-
-### **LLM Provider Configuration**
-```yaml
-llm:
-  provider: "openai"
-  model: "gpt-4"
-  temperature: 0.7        # Response creativity (0-1)
-  max_tokens: 2048        # Response length limit
-  timeout: 30             # Request timeout seconds
-```
-
-### **Vector Store Tuning**
-```yaml
-vector_store:
-  chunk_size: 1000        # Document chunk size
-  chunk_overlap: 200      # Overlap between chunks  
-  embedding_model: "text-embedding-ada-002"
+export OCAT_CONFIG_PATH="/custom/ocat.yaml"
+export OCAT_LOG_LEVEL="DEBUG"
+export OCAT_VECTOR_PATH="/custom/vectors"
 ```
 
 ## 🚀 **Quick Setup**
 
-### **1. Install Dependencies**
-```bash
-poetry install  # If using Poetry
-pip install -r requirements.txt  # Alternative
-```
-
-### **2. Set API Key**
-```bash
-export OCAT_API_KEY="your-key-here"
-```
-
-### **3. Run Ocat**
-```bash
-poetry run ocat  # With Poetry
-ocat            # If installed globally
-```
+1. **Install**: `poetry install` or `pip install -r requirements.txt`
+2. **Set API Key**: `export OCAT_API_KEY="your-key"`
+3. **Run**: `poetry run ocat` or `ocat`
 
 ## 🛠️ **Troubleshooting**
 
 ### **Common Issues**
 - **API key errors**: Check environment variables
 - **Config not found**: Verify file path and permissions
-- **Vector store issues**: Check disk space and permissions
-- **Model errors**: Verify model name and provider settings
+- **Vector store issues**: Check disk space
+- **Model errors**: Verify model name and provider
 
 ### **Debug Mode**
 ```bash
 export OCAT_LOG_LEVEL="DEBUG"
-ocat  # Run with verbose logging
+ocat
 ```
 
 ## 💡 **Tips**
-- **Start with defaults** and customize gradually
-- **Use environment variables** for sensitive data
-- **Version control** your config (without secrets)
-- **Test configuration** with `/vector stats` command
+- Start with defaults, customize gradually
+- Use environment variables for secrets
+- Test with `/config` and `/vstats` commands
 """,
-            aliases=["configuration", "setup", "config", "settings"]
+            aliases=["configuration", "setup", "config", "settings"],
         )
         self.register_section("config", config)
-        
+
         # Tips section
         tips = HelpSection(
             title="Usage Tips & Best Practices",
@@ -625,186 +505,110 @@ ocat  # Run with verbose logging
 ## 🚀 **Getting Started**
 
 ### **First Steps**
-1. **Set up API key**: `export OCAT_API_KEY="your-key"`
-2. **Start chatting**: Ask questions naturally
-3. **Try productivity**: `create a task to learn Ocat`
-4. **Explore commands**: `/help commands`
+1. Set API key: `export OCAT_API_KEY="your-key"`
+2. Start chatting naturally
+3. Try: `"create a task to learn Ocat"`
+4. Explore: `/help commands`
 
 ### **Essential Commands**
 ```
-/help productivity    # Learn task management
-/locations           # Set up file shortcuts  
-/history            # Review conversation
-/copy               # Copy AI responses
+/st                  # Show open tasks
+/locations           # Set up location aliases
+/history             # Review conversation
+/copy                # Copy AI responses
 ```
 
 ## 📊 **Productivity Workflow**
 
 ### **Daily Planning**
 ```
-# Morning routine
-list tasks due today
-add event: standup meeting at 9am
-create reminder to review weekly goals
-
-# End of day
-mark task001 completed
-list tasks for tomorrow
-save memory: great progress on project X
+"show me my tasks for today"
+"create a task to review the quarterly report"
+"add milk to my shopping list"
+/st priority:urgent
 ```
 
 ### **Project Management**
 ```
-# Project setup
-create task: define project requirements
-add event: project kickoff next Monday 2pm
-remember: project deadline is December 15th
-
-# Progress tracking  
-update task001 status to in_progress
-create task: review milestone deliverables
-list all tasks in category "project-alpha"
+"create high priority task: define requirements"
+"remember: project deadline is December 15th"
+"show me all tasks for project-alpha"
+/list project-tasks
 ```
 
 ## 📁 **File Management**
 
 ### **Efficient File Access**
-```bash
-# Set up aliases first
-/location add proj ~/work/current-project
-/location add docs ~/Documents
-/location add config ~/.config
+Set up location aliases in `ocat.yaml`:
+```yaml
+locations:
+  proj: "~/work/current-project"
+  docs: "~/Documents"
+```
 
-# Then use shortcuts
+Then use shortcuts:
+```
 /file read proj:readme.md
 /file list docs:
-/file search "TODO" proj:
-```
-
-### **Documentation Workflow**
-```
-# Reading and note-taking
-/file read docs:meeting-notes.md
-remember: key decision was to use microservices
-create task: update architecture documentation
-
-# Writing and organization
-/file write docs:summary.md "Project Summary..."
-/file append proj:changelog.md "v1.2 - Added new features"
+"read config.yaml and explain the settings"
 ```
 
 ## 💬 **Chat Optimization**
 
 ### **Effective Communication**
-- **Be specific**: "Help me debug the auth error in login.py"
-- **Provide context**: Share relevant file contents
-- **Ask follow-ups**: Build on previous responses
-- **Use productivity data**: "Based on my tasks, what should I prioritize?"
+- Be specific: "Debug the auth error in login.py"
+- Provide context: Share relevant file contents  
+- Ask follow-ups: Build on previous responses
+- Use productivity data: "Based on my tasks, what's priority?"
 
-### **Managing Long Conversations**
+### **Managing Conversations**
 ```
-/clear               # Start fresh when context gets heavy
+/clear               # Start fresh when needed
 /history 10          # Review recent discussion
-/context             # Check current conversation scope
-```
-
-## 🔄 **Integration Patterns**
-
-### **Cross-Feature Usage**
-```
-# Chat + Productivity
-"Based on my tasks, what should I work on next?"
-"Add the suggestions from this conversation to my tasks"
-
-# Files + Memory  
-/file read config.yaml
-remember: the database URL is set in config.yaml line 15
-
-# Productivity + Files
-create task: update documentation in docs:api.md
-/file read proj:todo.txt  # Import existing todos
+/showcontext off     # Reduce context display
 ```
 
 ## ⚡ **Efficiency Tips**
 
 ### **Keyboard Shortcuts**
-- **↑/↓**: Command history navigation
+- **↑/↓**: Navigate command history
 - **Ctrl+C**: Interrupt long responses
 - **Ctrl+D**: Quick exit
-- **Tab**: Auto-completion (where available)
 
-### **Command Optimization**
+### **Natural Language Power**
 ```
-# Use aliases for common commands
-/h instead of /help
-/q instead of /quit  
-/c instead of /clear
-
-# Batch operations
-list all tasks; list events this week; show reminders
-```
-
-### **Productivity Shortcuts**
-```
-# Quick task creation
-todo: finish the report by Friday
-
-# Rapid event scheduling  
-meeting with client tomorrow 2pm
-
-# Fast memory storage
-remember: Sarah's extension is 2745
+"create a task to finish the presentation due Friday"
+"what files are in my current directory?"
+"show me my high priority tasks"
+"add eggs and milk to my shopping list"
+"remember that the client prefers morning meetings"
 ```
 
 ## 🛠️ **Troubleshooting**
 
 ### **Common Issues**
-- **Slow responses**: Check internet connection and API limits
-- **Missing data**: Use `/vector stats` to check storage
+- **Slow responses**: Check internet and API limits
+- **Missing data**: Use `/vstats` to check storage
 - **Command errors**: Verify syntax with `/help commands`
 - **File access**: Check paths and permissions
 
 ### **Performance Tips**
-- **Clear vector store** periodically with `/vector clear`
-- **Limit history** in config for faster loading
-- **Use specific queries** rather than broad searches
-- **Restart session** if memory usage grows large
-
-## 🎯 **Advanced Usage**
-
-### **Power User Workflows**
-```
-# Daily dashboard
-list tasks due today; list events today; show active reminders
-
-# Weekly review
-search tasks completed last week
-list events next week  
-show memories from category "project-notes"
-
-# Project context switching
-forget old_project memories
-/vector clear old_project_collection
-create task: set up new project environment
-```
-
-### **Automation Ideas**
-- **Morning routine**: Standard set of list commands
-- **Project templates**: Reusable task and event patterns  
-- **Review cycles**: Regular memory and task cleanup
-- **Documentation sync**: File operations + memory storage
+- Use `/clear` to start fresh conversations
+- Set up location aliases for frequent paths
+- Use specific queries rather than broad searches
+- Check `/config` for current settings
 
 ## 🌟 **Pro Tips**
-- **Combine natural language** with slash commands seamlessly
-- **Use the AI assistant** to help interpret your productivity data
-- **Leverage vector search** across all your data (chat + productivity)
-- **Build habits** around consistent productivity workflows
-- **Experiment** with different organization patterns to find what works
+- Combine natural language with slash commands seamlessly
+- Use AI to interpret your productivity data
+- Set up location aliases for frequent file access
+- Build consistent productivity workflows
+- Experiment with organization patterns
 """,
-            aliases=["tip", "tips", "best", "practices", "workflow"]
+            aliases=["tip", "tips", "best", "practices", "workflow"],
         )
         self.register_section("tips", tips)
-    
+
     def _generate_overview(self) -> str:
         """Generate the main help overview."""
         return self.get_section("overview").content
@@ -822,22 +626,22 @@ def get_help_registry() -> HelpRegistry:
 def get_help_content(section: Optional[str] = None) -> str:
     """
     Get help content for a specific section or overview.
-    
+
     Parameters
     ----------
     section : Optional[str]
         Help section to retrieve, or None for overview
-        
+
     Returns
     -------
     str
         Formatted help content
     """
     registry = get_help_registry()
-    
+
     if section is None:
         return registry.get_overview()
-    
+
     help_section = registry.get_section(section)
     if help_section is None:
         available_sections = ", ".join(registry.list_sections())
@@ -852,21 +656,23 @@ Use `/help` for the main overview or `/help <section>` for specific topics.
 
 **Example**: `/help productivity` or `/help commands`
 """
-    
+
     return help_section.content
 
 
-def add_help_section(key: str, title: str, content: str, aliases: List[str] = None) -> None:
+def add_help_section(
+    key: str, title: str, content: str, aliases: List[str] = None
+) -> None:
     """
     Add a new help section to the registry.
-    
+
     This function allows developers to easily add new help sections.
-    
+
     Parameters
     ----------
     key : str
         Primary key for the section
-    title : str  
+    title : str
         Section title
     content : str
         Markdown-formatted help content

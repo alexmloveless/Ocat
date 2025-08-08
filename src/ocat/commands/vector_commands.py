@@ -9,6 +9,7 @@ from rich.table import Table
 from rich.panel import Panel
 
 from . import command, BaseCommand, CommandResult
+from ..productivity.models import EntityType
 
 
 @command(
@@ -366,6 +367,12 @@ class VectorStatsCommand(BaseCommand):
 
             # Display basic statistics
             stats_table.add_row("Total Exchanges", str(stats.get("total_exchanges", 0)))
+            stats_table.add_row(
+                "Conversation Exchanges", str(stats.get("conversation_exchanges", 0))
+            )
+            stats_table.add_row(
+                "Productivity Exchanges", str(stats.get("productivity_exchanges", 0))
+            )
             stats_table.add_row("Total Vectors", str(stats.get("index_size", 0)))
             stats_table.add_row("Embedding Model", context.config.embedding.model)
             stats_table.add_row(
@@ -395,6 +402,36 @@ class VectorStatsCommand(BaseCommand):
 
             context.console.print(stats_table)
             context.console.print()
+
+            # Display productivity object counts
+            if (
+                hasattr(context, "productivity_storage")
+                and context.productivity_storage
+            ):
+                prod_table = Table(title="Productivity Objects")
+                prod_table.add_column("Object Type", style="cyan", no_wrap=True)
+                prod_table.add_column("Count", style="white")
+
+                # Count each entity type
+                for entity_type in EntityType:
+                    entities = context.productivity_storage.get_entities_by_type(
+                        entity_type, limit=1000
+                    )
+                    count = len(entities)
+                    prod_table.add_row(entity_type.value.title(), str(count))
+
+                # Add total productivity objects
+                all_entities = []
+                for entity_type in EntityType:
+                    all_entities.extend(
+                        context.productivity_storage.get_entities_by_type(
+                            entity_type, limit=1000
+                        )
+                    )
+                prod_table.add_row("Total Productivity", str(len(all_entities)))
+
+                context.console.print(prod_table)
+                context.console.print()
 
             # Display recent activity if available
             if "recent_activity" in stats:

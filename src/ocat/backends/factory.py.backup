@@ -11,7 +11,6 @@ from . import LLMBackend
 from .openai_backend import OpenAIBackend
 from .anthropic_backend import AnthropicBackend
 from .google_backend import GoogleBackend
-from .ollama_backend import OllamaBackend
 from ..config import Config
 from ..exceptions import LLMError
 
@@ -46,24 +45,6 @@ GOOGLE_MODELS = {
     "gemini-pro-vision",
 }
 
-OLLAMA_MODELS = {
-    "llama3.2",
-    "llama3.1",
-    "llama3",
-    "llama2",
-    "mistral",
-    "mixtral",
-    "codellama",
-    "phi",
-    "gemma",
-    "qwen",
-    "deepseek-coder",
-    "neural-chat",
-    "starling-lm",
-    "vicuna",
-    "orca-mini",
-}
-
 
 def detect_provider_from_model(model: str) -> str:
     """
@@ -77,7 +58,7 @@ def detect_provider_from_model(model: str) -> str:
     Returns
     -------
     str
-        The provider name ('openai', 'anthropic', 'google', 'ollama').
+        The provider name ('openai', 'anthropic', 'google').
 
     Raises
     ------
@@ -93,8 +74,6 @@ def detect_provider_from_model(model: str) -> str:
         return "anthropic"
     if model in GOOGLE_MODELS:
         return "google"
-    if model in OLLAMA_MODELS:
-        return "ollama"
 
     # Check for partial matches by common prefixes
     if model_lower.startswith(("gpt-", "o1-")):
@@ -103,28 +82,11 @@ def detect_provider_from_model(model: str) -> str:
         return "anthropic"
     elif model_lower.startswith(("gemini", "palm", "bison")):
         return "google"
-    elif model_lower.startswith(
-        (
-            "llama",
-            "mistral",
-            "mixtral",
-            "codellama",
-            "phi",
-            "gemma",
-            "qwen",
-            "deepseek",
-            "neural",
-            "starling",
-            "vicuna",
-            "orca",
-        )
-    ):
-        return "ollama"
 
     # If no match found, raise an error
     raise LLMError(
         f"Unable to detect provider for model '{model}'. "
-        f"Supported providers: OpenAI (gpt-*), Anthropic (claude-*), Google (gemini-*), Ollama (llama*, mistral*, etc.)"
+        f"Supported providers: OpenAI (gpt-*), Anthropic (claude-*), Google (gemini-*)"
     )
 
 
@@ -167,8 +129,6 @@ def create_backend(config: Config, api_key: Optional[str] = None) -> LLMBackend:
         return AnthropicBackend(**backend_kwargs)
     elif provider == "google":
         return GoogleBackend(**backend_kwargs)
-    elif provider == "ollama":
-        return OllamaBackend(**backend_kwargs)
     else:
         raise LLMError(f"Unsupported provider: {provider}")
 
@@ -222,7 +182,5 @@ def create_backend_for_model(
         return AnthropicBackend(**backend_kwargs)
     elif provider == "google":
         return GoogleBackend(**backend_kwargs)
-    elif provider == "ollama":
-        return OllamaBackend(**backend_kwargs)
     else:
         raise LLMError(f"Unsupported provider: {provider}")

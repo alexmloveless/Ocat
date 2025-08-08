@@ -5,7 +5,7 @@ Handles the core chat functionality, including message processing,
 LLM interactions, and conversation management.
 """
 
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Union, Tuple
 from dataclasses import dataclass
 import logging
 import asyncio
@@ -90,9 +90,10 @@ class ChatSession:
         # Set up logging for chat session
         self.logger = setup_logger("ocat.chat", LogLevel[config.logging.level], config)
         self.logger.debug("Chat session initialized")
-        
+
         # Initialize current working directory for file operations
         from pathlib import Path
+
         self.current_directory = Path.cwd()
 
         # Generate session and thread IDs for vector store
@@ -134,17 +135,26 @@ class ChatSession:
         self.productivity_integration: Optional[ProductivityIntegration] = None
         try:
             self.productivity_integration = create_productivity_integration(self)
+            if self.productivity_integration:
+                self.logger.info("Productivity integration initialized successfully")
+            else:
+                self.logger.warning("Productivity integration returned None")
         except Exception as e:
             self.logger.warning(f"Productivity integration disabled: {e}")
             # Continue without productivity features
-        
+
         # Initialize file tools integration
         self.file_integration: Optional[FileIntegration] = None
         try:
-            self.file_integration = create_file_integration_for_session(config, self.current_directory)
+            self.file_integration = create_file_integration_for_session(
+                config, self.current_directory
+            )
         except Exception as e:
             self.logger.warning(f"File tools integration disabled: {e}")
             # Continue without file tools
+
+        # Proactive memory management state
+        self._pending_memory_fact: Optional[str] = None
 
         # Warn user if base prompt is overridden
         if config.llm.override_base_prompt:
@@ -166,13 +176,15 @@ class ChatSession:
         # Add productivity capabilities to system prompt if available
         if self.productivity_integration:
             system_content += self.productivity_integration.get_system_prompt_addition()
-        
+
         # Add file tools capabilities to system prompt if available
         if self.file_integration:
             system_content += "\n\n## File Operations Available\n"
             system_content += "You can read, write, and explore files directly. When users ask to read files, "
             system_content += "summarize content, or work with the file system, you have access to these capabilities "
-            system_content += "through integrated tools. Use them naturally in conversation."
+            system_content += (
+                "through integrated tools. Use them naturally in conversation."
+            )
 
         if system_content:
             self.messages.append(Message(role="system", content=system_content))
@@ -183,9 +195,7 @@ class ChatSession:
             productivity_info = (
                 " with productivity features" if self.productivity_integration else ""
             )
-            file_tools_info = (
-                " and file tools" if self.file_integration else ""
-            )
+            file_tools_info = " and file tools" if self.file_integration else ""
             self.logger.info(
                 f"Loaded system prompt from {prompt_count} user file(s){base_prompt_info}{productivity_info}{file_tools_info}"
             )
@@ -199,6 +209,37 @@ class ChatSession:
         user_input : str
             The user's input message
         """
+        # Handle answer to memory prompt
+        if self._pending_memory_fact:
+            answer = user_input.lower().strip()
+            if answer in {"yes", "y", "sure", "ok", "okay"}:
+                try:
+                    if self.productivity_integration:
+                        pid = self.productivity_integration.store_memory(
+                            self._pending_memory_fact
+                        )
+                        self._pending_memory_fact = None
+                        self.console.print(f"✅ Saved as memory {pid}.", style="green")
+                        return
+                    else:
+                        self._pending_memory_fact = None
+                        self.console.print(
+                            "❌ Productivity system not available.", style="red"
+                        )
+                        return
+                except Exception as e:
+                    self.logger.error(f"Failed to store memory: {e}")
+                    self.console.print(
+                        "❌ Failed to store the memory. Please try again.", style="red"
+                    )
+                    self._pending_memory_fact = None
+                    return
+            elif answer in {"no", "n", "not now", "cancel"}:
+                self._pending_memory_fact = None
+                self.console.print("👍 Okay, I won't store it.", style="yellow")
+                return
+            # If answer is something else, fall through to normal processing
+
         # Check if this is a slash command
         if self.command_parser.is_command(user_input):
             try:
@@ -217,6 +258,29 @@ class ChatSession:
                 self.logger.error(f"Unexpected error processing command: {e}")
                 self.console.print(f"❌ Command error: {e}", style="red")
                 return
+
+        # Proactive memory suggestion (check before productivity routing)
+        if (
+            self.productivity_integration
+            and self._pending_memory_fact is None  # Don't stack suggestions
+        ):
+            try:
+                fact = self.productivity_integration.maybe_extract_memory_fact(
+                    user_input
+                )
+                if fact:
+                    self._pending_memory_fact = fact
+                    suggest_text = (
+                        f"🧠  It looks like you just shared something important:\n\n"
+                        f'    "{fact}"\n\n'
+                        "Would you like me to remember this for you? (yes/no)"
+                    )
+                    self.console.print(suggest_text, style="cyan")
+                    # Do NOT call LLM; we wait for user's yes/no
+                    return
+            except Exception as e:
+                self.logger.error(f"Error in proactive memory suggestion: {e}")
+                # Continue with normal processing
 
         # Check if this is a productivity request
         if (
@@ -276,29 +340,26 @@ class ChatSession:
                 # Fall through to regular processing
 
         # Check for file operation intent
-        if (
-            self.file_integration
-            and self.file_integration.detect_file_intent(user_input)
+        if self.file_integration and self.file_integration.detect_file_intent(
+            user_input
         ):
             try:
-                self.logger.debug(
-                    f"Routing to file agent: {user_input[:50]}..."
-                )
+                self.logger.debug(f"Routing to file agent: {user_input[:50]}...")
 
                 # Update current directory in file integration
                 self.file_integration.update_current_directory(self.current_directory)
 
                 # Process with file agent
-                file_response = await self.file_integration.handle_file_request(user_input)
+                file_response = await self.file_integration.handle_file_request(
+                    user_input
+                )
 
                 if file_response:
                     # Add both user message and file response to conversation
                     user_message = Message(role="user", content=user_input)
                     self.messages.append(user_message)
 
-                    assistant_message = Message(
-                        role="assistant", content=file_response
-                    )
+                    assistant_message = Message(role="assistant", content=file_response)
                     self.messages.append(assistant_message)
 
                     # Display the response
@@ -426,11 +487,13 @@ class ChatSession:
             f"Context search query includes {len(recent_exchanges)} recent messages"
         )
 
-        # Retrieve similar exchanges for context if vector store is enabled
-        context_exchanges = await self._retrieve_context(query_text)
+        # Retrieve similar exchanges and memories for context if vector store is enabled
+        context_exchanges, memory_exchanges = await self._retrieve_context(query_text)
 
         # Prepare messages for LLM API, including context if available
-        api_messages = self._prepare_messages_with_context(context_exchanges)
+        api_messages = self._prepare_messages_with_context(
+            context_exchanges, memory_exchanges
+        )
 
         self.logger.debug(f"Sending {len(api_messages)} messages to LLM backend")
 
@@ -620,24 +683,30 @@ class ChatSession:
             f"Cleared conversation history ({message_count - len(system_messages)} messages removed)"
         )
 
-    async def _retrieve_context(self, query_text: str) -> List[Exchange]:
+    async def _retrieve_context(
+        self, query_text: str
+    ) -> Tuple[List[Exchange], List[Exchange]]:
         """
-        Retrieve relevant conversation context using enhanced LangGraph memory.
+        Retrieve relevant conversation context and memories from vector store.
 
         Parameters
         ----------
         query_text : str
-            The query text to retrieve context for
+            Text query for context search
 
         Returns
         -------
-        List[Exchange]
-            List of similar exchanges based on context
+        Tuple[List[Exchange], List[Exchange]]
+            Tuple of (regular_context, memory_context)
 
         """
+        regular_context = []
+        memory_context = []
+
         if self.vector_store:
             try:
-                similar_exchanges = self.vector_store.get_episodic_context(
+                # Get regular conversation context (excluding memories)
+                regular_context = self.vector_store.get_episodic_context(
                     query_text=query_text,
                     max_context_length=min(
                         2000, self.config.llm.max_tokens // 4
@@ -645,14 +714,23 @@ class ChatSession:
                     relevance_threshold=self.config.vector_store.similarity_threshold,
                 )
                 self.logger.debug(
-                    f"Retrieved {len(similar_exchanges)} similar exchanges"
+                    f"Retrieved {len(regular_context)} regular context exchanges"
                 )
-                return similar_exchanges
+
+                # Get relevant memories separately
+                memory_context = self.vector_store.find_relevant_memories(
+                    query_text=query_text,
+                    n_results=self.config.vector_store.memory_results,
+                    similarity_threshold=self.config.vector_store.memory_threshold,
+                )
+                self.logger.debug(f"Retrieved {len(memory_context)} relevant memories")
+
             except VectorStoreError as e:
                 self.logger.warning(
                     f"Failed to retrieve context from vector store: {e}"
                 )
-        return []
+
+        return regular_context, memory_context
 
     def _load_system_prompts(
         self, base_prompt_file: str, prompt_files: List[str], override_base_prompt: bool
@@ -729,36 +807,46 @@ class ChatSession:
         return "\n\n".join(system_prompts)
 
     def _prepare_messages_with_context(
-        self, context_exchanges: List[Exchange]
+        self, context_exchanges: List[Exchange], memory_exchanges: List[Exchange]
     ) -> List[Dict[str, Any]]:
         """
-        Prepare messages for LLM API including context from vector store.
+        Prepare messages for LLM API including context and memories from vector store.
 
         Parameters
         ----------
         context_exchanges : List[Exchange]
             Similar exchanges from vector store to use as context
+        memory_exchanges : List[Exchange]
+            Relevant memories from vector store to use as context
 
         Returns
         -------
         List[Dict[str, Any]]
-            Messages formatted for LLM API with context included
+            Messages formatted for LLM API with context and memories included
         """
         # Start with conversation history
         api_messages = self.get_conversation_history()
 
-        # If we have context exchanges, inject them before the current conversation
         # Check the context display mode via the showcontext command
         context_mode = getattr(self, "context_mode", "off")  # Default to off
-        if (
-            context_exchanges
-            and self.config.vector_store.enabled
-            and context_mode == "on"
-        ):
-            # Create a context message with relevant exchanges
-            context_content = (
-                "Here are some relevant previous conversations for context:\n\n"
-            )
+
+        # Handle memories and context separately
+        if self.config.vector_store.enabled and (memory_exchanges or context_exchanges):
+            # Build context content
+            context_content = ""
+
+            # Add memories first if we have any (always included if found, regardless of context mode)
+            if memory_exchanges:
+                context_content += "Here are some relevant memories about you:\n\n"
+                for i, memory in enumerate(memory_exchanges):
+                    context_content += f"Memory {i+1}: {memory.user_prompt}\n"
+                context_content += "\n"
+
+            # Add regular context if mode is on
+            if context_exchanges and context_mode == "on":
+                context_content += (
+                    "Here are some relevant previous conversations for context:\n\n"
+                )
 
             for i, exchange in enumerate(
                 context_exchanges[: self.config.vector_store.context_results]
@@ -767,112 +855,145 @@ class ChatSession:
                 context_content += f"User: {exchange.user_prompt}\n"
                 context_content += f"Assistant: {exchange.assistant_response}\n\n"
 
-            context_content += (
-                "Please use this context to inform your response when relevant.\n"
-            )
+            if context_content:  # Only add if we have any content
+                context_content += "Please use this information to inform your response when relevant.\n"
 
-            # Insert context after system messages but before conversation
-            system_messages = [msg for msg in api_messages if msg["role"] == "system"]
-            conversation_messages = [
-                msg for msg in api_messages if msg["role"] != "system"
-            ]
+                # Insert context after system messages but before conversation
+                system_messages = [
+                    msg for msg in api_messages if msg["role"] == "system"
+                ]
+                conversation_messages = [
+                    msg for msg in api_messages if msg["role"] != "system"
+                ]
 
-            # Build final message list
-            final_messages = system_messages
-
-            # Add context message if we have context
-            if context_exchanges:
+                # Build final message list
+                final_messages = system_messages
                 final_messages.append({"role": "system", "content": context_content})
+
+                # Visual indicators
+                if memory_exchanges:
+                    self.console.print(
+                        f"🧠 Using {len(memory_exchanges)} relevant memory(ies):",
+                        style="dim magenta",
+                    )
+                    for i, memory in enumerate(memory_exchanges):
+                        memory_excerpt = (
+                            memory.user_prompt[:80] + "..."
+                            if len(memory.user_prompt) > 80
+                            else memory.user_prompt
+                        )
+                        self.console.print(
+                            f"   {i+1}. {memory_excerpt}", style="dim magenta"
+                        )
+
+                if context_exchanges and context_mode == "on":
+                    self.console.print(
+                        f"💭 Using context from {len(context_exchanges)} previous exchange(s):",
+                        style="dim cyan",
+                    )
+
+                    # Show excerpts from each context exchange
+                    for i, exchange in enumerate(
+                        context_exchanges[: self.config.vector_store.context_results], 1
+                    ):
+                        # Truncate long exchanges for display
+                        user_excerpt = (
+                            exchange.user_prompt[:60] + "..."
+                            if len(exchange.user_prompt) > 60
+                            else exchange.user_prompt
+                        )
+                        assistant_excerpt = (
+                            exchange.assistant_response[:80] + "..."
+                            if len(exchange.assistant_response) > 80
+                            else exchange.assistant_response
+                        )
+
+                        self.console.print(
+                            f"   {i}. User: {user_excerpt}", style="dim blue"
+                        )
+                        self.console.print(
+                            f"      Assistant: {assistant_excerpt}", style="dim green"
+                        )
+
+                final_messages.extend(conversation_messages)
                 self.logger.debug(
-                    f"Added context from {len(context_exchanges)} exchanges"
+                    f"Added context: {len(memory_exchanges)} memories, {len(context_exchanges) if context_mode == 'on' else 0} exchanges"
+                )
+                return final_messages
+        elif self.config.vector_store.enabled and (
+            memory_exchanges or (context_exchanges and context_mode == "summary")
+        ):
+            # Handle summary mode and memories together
+            context_content = ""
+
+            # Add memories first if we have any (always included)
+            if memory_exchanges:
+                context_content += "Here are some relevant memories about you:\n\n"
+                for i, memory in enumerate(memory_exchanges):
+                    context_content += f"Memory {i+1}: {memory.user_prompt}\n"
+                context_content += "\n"
+
+                # Visual indicator for memories
+                self.console.print(
+                    f"🧠 Using {len(memory_exchanges)} relevant memory(ies):",
+                    style="dim magenta",
+                )
+                for i, memory in enumerate(memory_exchanges):
+                    memory_excerpt = (
+                        memory.user_prompt[:80] + "..."
+                        if len(memory.user_prompt) > 80
+                        else memory.user_prompt
+                    )
+                    self.console.print(
+                        f"   {i+1}. {memory_excerpt}", style="dim magenta"
+                    )
+
+            # Add context if mode is summary
+            if context_exchanges and context_mode == "summary":
+                self.logger.debug("Context exchanges available, showing summary mode")
+                # Count total words in context
+                total_words = sum(
+                    len(exchange.user_prompt.split())
+                    + len(exchange.assistant_response.split())
+                    for exchange in context_exchanges
                 )
 
-                # Visual indicator that context is being used with excerpts
+                # Visual indicator for summary mode
                 self.console.print(
-                    f"🧠 Using context from {len(context_exchanges)} previous exchange(s):",
+                    f"💭 {len(context_exchanges)} context items included, totalling {total_words} words",
                     style="dim cyan",
                 )
 
-                # Show excerpts from each context exchange
-                for i, exchange in enumerate(
-                    context_exchanges[: self.config.vector_store.context_results], 1
-                ):
-                    # Truncate long exchanges for display
-                    user_excerpt = (
-                        exchange.user_prompt[:60] + "..."
-                        if len(exchange.user_prompt) > 60
-                        else exchange.user_prompt
-                    )
-                    assistant_excerpt = (
-                        exchange.assistant_response[:80] + "..."
-                        if len(exchange.assistant_response) > 80
-                        else exchange.assistant_response
-                    )
-
-                    self.console.print(
-                        f"   {i}. User: {user_excerpt}", style="dim blue"
-                    )
-                    self.console.print(
-                        f"      Assistant: {assistant_excerpt}", style="dim green"
-                    )
-
-            final_messages.extend(conversation_messages)
-
-            return final_messages
-        elif (
-            context_exchanges
-            and self.config.vector_store.enabled
-            and context_mode == "summary"
-        ):
-            self.logger.debug("Context exchanges available, showing summary mode")
-            # Count total words in context
-            total_words = sum(
-                len(exchange.user_prompt.split())
-                + len(exchange.assistant_response.split())
-                for exchange in context_exchanges
-            )
-
-            # Visual indicator for summary mode
-            self.console.print(
-                f"💭 {len(context_exchanges)} context items included, totalling {total_words} words",
-                style="dim cyan",
-            )
-
-            # Create context message for the LLM (same as 'on' mode)
-            context_content = (
-                "Here are some relevant previous conversations for context:\n\n"
-            )
-
-            for i, exchange in enumerate(
-                context_exchanges[: self.config.vector_store.context_results]
-            ):
-                context_content += f"Context {i+1}:\n"
-                context_content += f"User: {exchange.user_prompt}\n"
-                context_content += f"Assistant: {exchange.assistant_response}\n\n"
-
-            context_content += (
-                "Please use this context to inform your response when relevant.\n"
-            )
-
-            # Insert context after system messages but before conversation
-            system_messages = [msg for msg in api_messages if msg["role"] == "system"]
-            conversation_messages = [
-                msg for msg in api_messages if msg["role"] != "system"
-            ]
-
-            # Build final message list
-            final_messages = system_messages
-
-            # Add context message if we have context
-            if context_exchanges:
-                final_messages.append({"role": "system", "content": context_content})
-                self.logger.debug(
-                    f"Added context from {len(context_exchanges)} exchanges"
+                context_content += (
+                    "Here are some relevant previous conversations for context:\n\n"
                 )
+                for i, exchange in enumerate(
+                    context_exchanges[: self.config.vector_store.context_results]
+                ):
+                    context_content += f"Context {i+1}:\n"
+                    context_content += f"User: {exchange.user_prompt}\n"
+                    context_content += f"Assistant: {exchange.assistant_response}\n\n"
 
-            final_messages.extend(conversation_messages)
+            if context_content:
+                context_content += "Please use this information to inform your response when relevant.\n"
 
-            return final_messages
+                # Insert context after system messages but before conversation
+                system_messages = [
+                    msg for msg in api_messages if msg["role"] == "system"
+                ]
+                conversation_messages = [
+                    msg for msg in api_messages if msg["role"] != "system"
+                ]
+
+                # Build final message list
+                final_messages = system_messages
+                final_messages.append({"role": "system", "content": context_content})
+                final_messages.extend(conversation_messages)
+
+                self.logger.debug(
+                    f"Added context: {len(memory_exchanges)} memories, {len(context_exchanges) if context_mode == 'summary' else 0} exchanges"
+                )
+                return final_messages
 
         return api_messages
 

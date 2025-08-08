@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: prod
+      # target: prod
     stdin_open: true
     tty: true
     env_file:
@@ -46,7 +46,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: prod
+      # target: prod
     env_file:
       - .env
     volumes:

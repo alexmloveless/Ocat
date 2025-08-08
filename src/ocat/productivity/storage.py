@@ -10,7 +10,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Type, Union, cast
+from typing import List, Optional, Dict, Any, Type, cast
 
 from .models import (
     ProductivityEntity,
@@ -161,7 +161,11 @@ class ProductivityStorage:
                     ),
                 ),
                 "pseudo_id": metadata.get("entity_pseudo_id"),
-                "status": EntityStatus(metadata["entity_status"]) if metadata.get("entity_status") else None,
+                "status": (
+                    EntityStatus(metadata["entity_status"])
+                    if metadata.get("entity_status")
+                    else None
+                ),
                 "created_at": (
                     datetime.fromisoformat(metadata["entity_created_at"])
                     if "entity_created_at" in metadata
@@ -245,10 +249,18 @@ class ProductivityStorage:
     def _entity_to_metadata(self, entity: ProductivityEntity) -> Dict[str, Any]:
         """Convert entity to vector store metadata format."""
         metadata = {
-            "entity_type": entity.entity_type.value if hasattr(entity.entity_type, 'value') else entity.entity_type,
+            "entity_type": (
+                entity.entity_type.value
+                if hasattr(entity.entity_type, "value")
+                else entity.entity_type
+            ),
             "entity_content": entity.content,
             "entity_pseudo_id": entity.pseudo_id,
-            "entity_status": entity.status.value if entity.status and hasattr(entity.status, 'value') else (entity.status if entity.status else None),
+            "entity_status": (
+                entity.status.value
+                if entity.status and hasattr(entity.status, "value")
+                else (entity.status if entity.status else None)
+            ),
             "entity_created_at": entity.created_at.isoformat(),
             "entity_updated_at": (
                 entity.updated_at.isoformat() if entity.updated_at else None
@@ -329,7 +341,11 @@ class ProductivityStorage:
             try:
                 # Generate pseudo ID if not provided
                 if not entity.pseudo_id:
-                    entity_type = EntityType(entity.entity_type) if isinstance(entity.entity_type, str) else entity.entity_type
+                    entity_type = (
+                        EntityType(entity.entity_type)
+                        if isinstance(entity.entity_type, str)
+                        else entity.entity_type
+                    )
                     entity.pseudo_id = self._generate_pseudo_id(entity_type)
 
                 # Set timestamps
@@ -341,9 +357,15 @@ class ProductivityStorage:
                 metadata = self._entity_to_metadata(entity)
 
                 # Create a user prompt that represents the entity creation
-                entity_type_str = entity.entity_type.value if hasattr(entity.entity_type, 'value') else entity.entity_type
+                entity_type_str = (
+                    entity.entity_type.value
+                    if hasattr(entity.entity_type, "value")
+                    else entity.entity_type
+                )
                 user_prompt = f"Create {entity_type_str}: {entity.content}"
-                assistant_response = f"Created {entity_type_str} {entity.pseudo_id}: {entity.content}"
+                assistant_response = (
+                    f"Created {entity_type_str} {entity.pseudo_id}: {entity.content}"
+                )
 
                 # Store in vector store
                 exchange_id = self.vector_store.add_exchange(
@@ -457,12 +479,14 @@ class ProductivityStorage:
                 # Create updated entity
                 # Remove entity_type from dict since it's passed as first arg
                 entity_dict_clean = entity_dict.copy()
-                entity_dict_clean.pop('entity_type', None)
+                entity_dict_clean.pop("entity_type", None)
                 updated_entity = create_entity(entity.entity_type, **entity_dict_clean)
                 updated_entity.pseudo_id = pseudo_id  # Preserve pseudo ID
-                
+
                 # Debug: Check if status actually changed
-                final_status = updated_entity.status.value if updated_entity.status else None
+                final_status = (
+                    updated_entity.status.value if updated_entity.status else None
+                )
 
                 # Get exchange ID - need to search through vector store
                 exchange_id = self._pseudo_id_map.get(pseudo_id)
@@ -508,9 +532,11 @@ class ProductivityStorage:
                     )
                     return True
                 except Exception as e:
+                    print(f"ChromaDB update failed: {e}")
                     return False
 
             except Exception as e:
+                print(f"Entity update failed: {e}")
                 return False
 
     def delete_entity(self, pseudo_id: str) -> bool:
@@ -589,8 +615,10 @@ class ProductivityStorage:
 
                                     if entity:
                                         # When status param is None, include all entities
-                                        # When status param is set, only include matching entities  
-                                        include_entity = (status is None) or (entity.status == status)
+                                        # When status param is set, only include matching entities
+                                        include_entity = (status is None) or (
+                                            entity.status == status
+                                        )
                                         if include_entity:
                                             entities.append(entity)
 
@@ -621,7 +649,9 @@ class ProductivityStorage:
                                 if entity:
                                     # When status param is None, include all entities
                                     # When status param is set, only include matching entities
-                                    include_entity = (status is None) or (entity.status == status)
+                                    include_entity = (status is None) or (
+                                        entity.status == status
+                                    )
                                     if include_entity:
                                         entities.append(entity)
 
