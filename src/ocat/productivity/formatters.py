@@ -5,7 +5,7 @@ Provides consistent formatting for displaying productivity entities
 in various formats (plain text, markdown, etc.).
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 from .models import ProductivityEntity, Task, Event, Reminder, Memory, EntityType
 
@@ -370,16 +370,26 @@ def _format_datetime(dt: datetime) -> str:
 
 
 def _format_datetime_short(dt: datetime) -> str:
-    """Format datetime in short form for lists."""
+    """Format datetime in short form for lists with relative dates."""
     now = datetime.now()
+    today = now.date()
+    dt_date = dt.date()
 
     # If it's today
-    if dt.date() == now.date():
-        return dt.strftime("%I:%M %p")
+    if dt_date == today:
+        return "today"
+
+    # If it's tomorrow
+    elif dt_date == today + timedelta(days=1):
+        return "tomorrow"
+
+    # If it's yesterday
+    elif dt_date == today - timedelta(days=1):
+        return "yesterday"
 
     # If it's this year
     elif dt.year == now.year:
-        return dt.strftime("%m/%d %I:%M %p")
+        return dt.strftime("%d-%b")
 
     # Otherwise include year
-    return dt.strftime("%m/%d/%y %I:%M %p")
+    return dt.strftime("%d-%b-%y")
