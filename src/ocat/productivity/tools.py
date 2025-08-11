@@ -135,7 +135,8 @@ class EntitySearchRequest(BaseModel):
         None, description="Text to search for in entity content"
     )
     entity_types: Optional[List[str]] = Field(
-        None, description="Filter by entity types: task, event, reminder, memory"
+        None,
+        description="Filter by entity types: task, event, reminder, memory, timelog",
     )
     status: Optional[str] = Field(
         None, description="Filter by status: active, completed, in_progress, deleted"
@@ -147,15 +148,17 @@ class EntitySearchRequest(BaseModel):
 productivity_agent: Agent[ProductivityStorage, str] = Agent(
     "openai:gpt-4o-mini",  # Use a fast, cost-effective model for tool calls
     deps_type=ProductivityStorage,
-    system_prompt="""You are a productivity assistant that helps manage tasks, events, reminders, memories, and lists.
+    system_prompt="""You are a productivity assistant that helps manage tasks, events, reminders, memories, lists, and time tracking.
 
 You have access to tools for creating, reading, updating, and deleting productivity entities. Use these tools when users ask to:
-- Create tasks, events, reminders, memories, or list items
+- Create tasks, events, reminders, memories, list items, or timelog entries
 - Show, list, or find existing entities  
 - Update or modify entities
 - Mark tasks as complete, archive list items, or delete entities
 - Search through their productivity data
 - Manage categorized lists of items
+- Track time spent on projects with flexible time entry (half day, full day, hours)
+- Log work time with project names, dates, and optional notes
 
 For list management specifically:
 - Use create_list_item to add items to named lists with optional categories
@@ -163,8 +166,14 @@ For list management specifically:
 - Use get_list_summary to show all available lists with counts
 - Use archive_list_item to archive items (don't delete them)
 
-When users provide natural language requests like "remind me to call mom tomorrow at 3pm", "add a meeting with the team on Friday", or "add milk to shopping list", 
+When users provide natural language requests like "remind me to call mom tomorrow at 3pm", "add a meeting with the team on Friday", "add milk to shopping list", or "log 4 hours on project alpha today", 
 use the appropriate creation tools with the parsed information.
+
+For timelog entries specifically:
+- Use create_timelog to log time spent on projects
+- Support flexible time entry: "half day" (4h), "full day" (8h), "quarter day" (2h), or exact hours
+- Parse dates flexibly: "today", "yesterday", "last Friday", etc.
+- Include project names and optional notes
 
 Always be helpful and confirm what actions you've taken. If information is missing or unclear, ask for clarification rather than guessing.
 """,
@@ -736,8 +745,10 @@ async def list_timelog_entries(
         # Filter by project if specified
         if project:
             entries = [
-                entry for entry in entries 
-                if isinstance(entry, TimelogEntry) and entry.project.lower() == project.lower()
+                entry
+                for entry in entries
+                if isinstance(entry, TimelogEntry)
+                and entry.project.lower() == project.lower()
             ]
 
         # Filter by date range if specified
@@ -747,14 +758,22 @@ async def list_timelog_entries(
             if start_date:
                 try:
                     start_dt = date_parser.parse(start_date).date()
-                    entries = [entry for entry in entries if isinstance(entry, TimelogEntry) and entry.day >= start_dt]
+                    entries = [
+                        entry
+                        for entry in entries
+                        if isinstance(entry, TimelogEntry) and entry.day >= start_dt
+                    ]
                 except (ValueError, TypeError):
                     pass
 
             if end_date:
                 try:
                     end_dt = date_parser.parse(end_date).date()
-                    entries = [entry for entry in entries if isinstance(entry, TimelogEntry) and entry.day <= end_dt]
+                    entries = [
+                        entry
+                        for entry in entries
+                        if isinstance(entry, TimelogEntry) and entry.day <= end_dt
+                    ]
                 except (ValueError, TypeError):
                     pass
 

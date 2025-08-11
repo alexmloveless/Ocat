@@ -72,6 +72,23 @@ class ProductivityIntegration:
             "travel",
             "archive",
             "bucket",
+            # Timelog-related
+            "timelog",
+            "time",
+            "hours",
+            "hour",
+            "worked",
+            "log",
+            "logged",
+            "logging",
+            "track",
+            "tracking",
+            "timesheet",
+            "day",
+            "days",
+            "half",
+            "full",
+            "quarter",
             # Actions
             "create",
             "add",
@@ -114,6 +131,16 @@ class ProductivityIntegration:
             r"\b(?:archive|remove)\s+(?:item|list)",
             r"\bshow\s+(?:all\s+)?lists\b",
             r"\bitems?\s+in\s+(?:list|shopping|books)",
+            # Timelog-related patterns
+            r"\b(?:add|log|track|record)\s+(?:\d+\s+)?(?:hours?|time)",
+            r"\b(?:worked|work)\s+(?:on|for)",
+            r"\b(?:half|full|quarter)\s+day",
+            r"\bto\s+timelog\b",
+            r"\btimelog\s+(?:for|on)",
+            r"\blog\s+(?:time|hours)",
+            r"\bshow\s+time",
+            r"\btime\s+(?:for|on)\s+project",
+            r"\b(?:worked|work)\s+(?:\d+\s+)?(?:hours?|hrs?)",
         ]
 
         # Compile regex patterns for efficiency

@@ -620,7 +620,8 @@ class TimelogCommand(BaseCommand):
                 entries = [
                     entry
                     for entry in entries
-                    if isinstance(entry, TimelogEntry) and entry.project.lower() == project_filter.lower()
+                    if isinstance(entry, TimelogEntry)
+                    and entry.project.lower() == project_filter.lower()
                 ]
 
             # Filter by date range if specified
@@ -630,14 +631,22 @@ class TimelogCommand(BaseCommand):
                 if start_date:
                     try:
                         start_dt = date_parser.parse(start_date).date()
-                        entries = [entry for entry in entries if isinstance(entry, TimelogEntry) and entry.day >= start_dt]
+                        entries = [
+                            entry
+                            for entry in entries
+                            if isinstance(entry, TimelogEntry) and entry.day >= start_dt
+                        ]
                     except (ValueError, TypeError):
                         return CommandResult.error(f"Invalid start date: {start_date}")
 
                 if end_date:
                     try:
                         end_dt = date_parser.parse(end_date).date()
-                        entries = [entry for entry in entries if isinstance(entry, TimelogEntry) and entry.day <= end_dt]
+                        entries = [
+                            entry
+                            for entry in entries
+                            if isinstance(entry, TimelogEntry) and entry.day <= end_dt
+                        ]
                     except (ValueError, TypeError):
                         return CommandResult.error(f"Invalid end date: {end_date}")
 
@@ -660,7 +669,7 @@ class TimelogCommand(BaseCommand):
                 context.console.print(message, style="yellow")
                 return CommandResult.ok(message)
 
-            # Create DataFrame for processing  
+            # Create DataFrame for processing
             data = []
             for entry in entries:
                 if isinstance(entry, TimelogEntry):
