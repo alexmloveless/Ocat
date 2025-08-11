@@ -17,6 +17,7 @@ from .models import (
     Reminder,
     Memory,
     ListItem,
+    TimelogEntry,
     EntityType,
     EntityStatus,
     create_entity,
@@ -82,6 +83,22 @@ class ListItemCreateRequest(BaseModel):
     list_name: str = Field(description="Name of the list this item belongs to")
     category: Optional[str] = Field(None, description="Item category or classification")
     tags: Optional[str] = Field(None, description="Comma-separated tags")
+
+
+class TimelogCreateRequest(BaseModel):
+    """Request model for creating a timelog entry."""
+
+    project: str = Field(description="Project name or identifier")
+    hours: str = Field(
+        description="Hours worked (number, 'half day', 'full day', etc.)"
+    )
+    day: Optional[str] = Field(
+        None, description="Date when time was logged (defaults to today)"
+    )
+    notes: Optional[str] = Field(None, description="Optional notes about the work")
+    content: Optional[str] = Field(
+        None, description="Description of work done (auto-generated if not provided)"
+    )
 
 
 class EntityUpdateRequest(BaseModel):
@@ -255,6 +272,45 @@ async def create_memory(
 
     except Exception as e:
         raise ModelRetry(f"Failed to create memory: {str(e)}. Please try again.")
+
+
+@productivity_agent.tool
+async def create_timelog(
+    ctx: RunContext[ProductivityStorage], request: TimelogCreateRequest
+) -> str:
+    """Create a new timelog entry for tracking time spent on projects."""
+    try:
+        # Auto-generate content if not provided
+        content = request.content
+        if not content:
+            content = f"Worked on {request.project}"
+            if request.notes:
+                content += f": {request.notes}"
+
+        # Create timelog entity
+        timelog = TimelogEntry(  # type: ignore[call-arg]
+            content=content,
+            project=request.project,
+            hours=request.hours,  # type: ignore[arg-type]
+            day=request.day,  # type: ignore[arg-type]
+            notes=request.notes,
+        )
+        pseudo_id = ctx.deps.create_entity(timelog)
+
+        hours_text = f"{timelog.hours} hours"
+        if timelog.hours == 8.0:
+            hours_text = "full day (8 hours)"
+        elif timelog.hours == 4.0:
+            hours_text = "half day (4 hours)"
+
+        notes_text = f" - {timelog.notes}" if timelog.notes else ""
+
+        return f"Logged {pseudo_id}: {hours_text} on {timelog.project} for {timelog.day}{notes_text}"
+
+    except Exception as e:
+        raise ModelRetry(
+            f"Failed to create timelog entry: {str(e)}. Please check the hours format and try again."
+        )
 
 
 @productivity_agent.tool
@@ -657,3 +713,71 @@ async def get_list_summary(ctx: RunContext[ProductivityStorage]) -> str:
 
     except Exception as e:
         raise ModelRetry(f"Failed to get list summary: {str(e)}. Please try again.")
+
+
+@productivity_agent.tool
+async def list_timelog_entries(
+    ctx: RunContext[ProductivityStorage],
+    project: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    limit: int = 50,
+) -> str:
+    """List timelog entries, optionally filtered by project and date range."""
+    try:
+        # Get all timelog entries
+        entries = ctx.deps.get_entities_by_type(
+            EntityType.TIMELOG, status=None, limit=limit
+        )
+
+        if not entries:
+            return "No timelog entries found."
+
+        # Filter by project if specified
+        if project:
+            entries = [
+                entry for entry in entries 
+                if isinstance(entry, TimelogEntry) and entry.project.lower() == project.lower()
+            ]
+
+        # Filter by date range if specified
+        if start_date or end_date:
+            from dateutil import parser as date_parser
+
+            if start_date:
+                try:
+                    start_dt = date_parser.parse(start_date).date()
+                    entries = [entry for entry in entries if isinstance(entry, TimelogEntry) and entry.day >= start_dt]
+                except (ValueError, TypeError):
+                    pass
+
+            if end_date:
+                try:
+                    end_dt = date_parser.parse(end_date).date()
+                    entries = [entry for entry in entries if isinstance(entry, TimelogEntry) and entry.day <= end_dt]
+                except (ValueError, TypeError):
+                    pass
+
+        if not entries:
+            filter_desc = []
+            if project:
+                filter_desc.append(f"project '{project}'")
+            if start_date or end_date:
+                date_range = []
+                if start_date:
+                    date_range.append(f"from {start_date}")
+                if end_date:
+                    date_range.append(f"to {end_date}")
+                filter_desc.append(" ".join(date_range))
+
+            filter_text = " with " + " and ".join(filter_desc) if filter_desc else ""
+            return f"No timelog entries found{filter_text}."
+
+        # Sort by date (most recent first) - ensure they're timelog entries
+        timelog_entries = [e for e in entries if isinstance(e, TimelogEntry)]
+        timelog_entries.sort(key=lambda x: x.day, reverse=True)
+
+        return format_entity_list(timelog_entries, title="Timelog Entries")
+
+    except Exception as e:
+        raise ModelRetry(f"Failed to list timelog entries: {str(e)}. Please try again.")

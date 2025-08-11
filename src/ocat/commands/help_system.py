@@ -135,6 +135,7 @@ class HelpRegistry:
 - `/remember <type> <text>` - Store information
 - `/st [category|priority:<level>]` - Show open tasks
 - `/list [listname]` - Show lists/list items
+- `/timelog` or `/tl` - Show/export timelog entries
 
 ## 🔧 **Model & Settings**
 - `/model <model_name>` - Change LLM model
@@ -152,7 +153,47 @@ class HelpRegistry:
             title="Productivity System Guide",
             content="""# 📊 **Productivity System**
 
-Manage tasks, lists, and memories using natural language.
+Manage tasks, lists, memories, and time tracking using natural language.
+
+## ⏰ **Timelog**
+Track time spent on projects with flexible entry and powerful reporting.
+
+### Commands:
+- `/timelog` or `/tl` - Show all timelog entries
+- `/timelog -p <project>` or `/timelog --project=<project>` - Filter by project
+- `/timelog -s <date>` or `/timelog --start=<date>` - Filter from date
+- `/timelog -e <date>` or `/timelog --end=<date>` - Filter to date
+- `/timelog -g <project|week|month>` or `/timelog --group=<project|week|month>` - Group entries
+- `/timelog -o <csv|json|yaml> -f <filename>` - Export to file
+
+### Natural Language Examples:
+```
+"i worked half day today on project nx with a note that I presented to the board"
+"log a half day against project alpha for yesterday"
+"worked all day on project beta on 6th June 25"
+"log 3 hours on database optimization today"
+"show time for project alpha last week"
+"save the time for the past month for project alpha to alpha.csv"
+```
+
+### Features:
+- Flexible time entry: "half day" (4h), "full day" (8h), or exact hours
+- Smart date parsing: "today", "yesterday", "6th June", etc.
+- Project-based tracking
+- Optional notes for context
+- Export capabilities (CSV, JSON, YAML)
+- Grouping by project, week, or month
+- Pseudo IDs (timelog001, timelog002, etc.)
+
+### Command Examples:
+```
+/timelog                           # All entries, most recent first
+/timelog -p alpha                  # Only project alpha entries
+/timelog -s "last week"            # Entries from last week
+/timelog -g project                # Group by project with totals
+/timelog -g month                  # Group by month
+/timelog -p alpha -o csv -f alpha_time.csv  # Export alpha project to CSV
+```
 
 ## ✅ **Tasks**
 Create and manage to-do items with priorities and categories.

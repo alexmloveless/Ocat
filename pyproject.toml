@@ -36,6 +36,7 @@ aiohttp = "^3.12.13"
 pytz = "^2025.1"
 pydantic-ai = ">=0.2.0"
 langchain-ollama = "^0.3.6"
+pandas = "^2.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
@@ -44,6 +45,7 @@ mypy = "^1.0.0"
 ruff = "*"
 types-pyyaml = "^6.0.0"
 pytest-asyncio = "^1.0.0"
+types-python-dateutil = "^2.9.0.20250809"
 
 [tool.poetry.scripts]
 ocat = "ocat.cli:main"

@@ -22,6 +22,7 @@ class EntityType(str, Enum):
     REMINDER = "reminder"
     MEMORY = "memory"
     LIST_ITEM = "list_item"
+    TIMELOG = "timelog"
 
 
 class EntityStatus(str, Enum):
@@ -285,8 +286,84 @@ class ListItem(BaseEntity):
         return v or []
 
 
+class TimelogEntry(BaseEntity):
+    """
+    Timelog entry for tracking time spent on projects.
+    """
+
+    entity_type: Literal[EntityType.TIMELOG] = EntityType.TIMELOG
+    day: date = Field(description="Date when time was logged")
+    project: str = Field(description="Project name or identifier")
+    hours: float = Field(description="Number of hours worked", gt=0, le=24)
+    notes: Optional[str] = Field(None, description="Optional notes about the work")
+
+    @field_validator("day", mode="before")
+    @classmethod
+    def parse_day(cls, v):
+        """Parse day from various string formats."""
+        if v is None:
+            return date.today()
+
+        if isinstance(v, date):
+            return v
+
+        if isinstance(v, datetime):
+            return v.date()
+
+        if isinstance(v, str):
+            try:
+                v_lower = v.lower().strip()
+                if v_lower in ["today"]:
+                    return date.today()
+                elif v_lower in ["yesterday"]:
+                    from datetime import timedelta
+
+                    return date.today() - timedelta(days=1)
+                else:
+                    # Use dateutil parser to handle various date formats
+                    parsed_date = date_parser.parse(v, fuzzy=True)
+                    return parsed_date.date()
+            except (ValueError, TypeError):
+                return date.today()
+
+        return v
+
+    @field_validator("hours", mode="before")
+    @classmethod
+    def parse_hours(cls, v):
+        """Parse hours from various formats including aliases."""
+        if isinstance(v, (int, float)):
+            return float(v)
+
+        if isinstance(v, str):
+            v_lower = v.lower().strip()
+
+            # Handle aliases
+            if v_lower in [
+                "full day",
+                "full-day",
+                "fullday",
+                "all day",
+                "all-day",
+                "allday",
+            ]:
+                return 8.0
+            elif v_lower in ["half day", "half-day", "halfday", "half"]:
+                return 4.0
+            elif v_lower in ["quarter day", "quarter-day", "quarterday", "quarter"]:
+                return 2.0
+
+            # Try to parse as number
+            try:
+                return float(v)
+            except ValueError:
+                raise ValueError(f"Could not parse hours: {v}")
+
+        raise ValueError("Hours is required")
+
+
 # Union type for all entity types
-ProductivityEntity = Task | Event | Reminder | Memory | ListItem
+ProductivityEntity = Task | Event | Reminder | Memory | ListItem | TimelogEntry
 
 
 def create_entity(entity_type: EntityType, **kwargs) -> ProductivityEntity:
@@ -311,6 +388,7 @@ def create_entity(entity_type: EntityType, **kwargs) -> ProductivityEntity:
         EntityType.REMINDER: Reminder,
         EntityType.MEMORY: Memory,
         EntityType.LIST_ITEM: ListItem,
+        EntityType.TIMELOG: TimelogEntry,
     }
 
     entity_class = entity_classes.get(entity_type)

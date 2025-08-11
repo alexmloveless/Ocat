@@ -56,6 +56,7 @@ class ProductivityStorage:
             EntityType.REMINDER: 0,
             EntityType.MEMORY: 0,
             EntityType.LIST_ITEM: 0,
+            EntityType.TIMELOG: 0,
         }
 
         # Cache for pseudo ID to exchange ID mapping

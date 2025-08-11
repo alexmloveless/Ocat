@@ -5,7 +5,11 @@ Implements task management commands like /st for showing tasks.
 """
 
 from typing import List, Any, Optional
-from datetime import datetime
+from datetime import datetime, date, timedelta
+import pandas as pd
+from pathlib import Path
+import json
+import yaml
 
 from . import command, BaseCommand, CommandResult
 from ..productivity.storage import ProductivityStorage
@@ -16,6 +20,7 @@ from ..productivity.models import (
     Event,
     Reminder,
     ListItem,
+    TimelogEntry,
 )
 from ..productivity.formatters import _format_datetime_short
 from rich.table import Table
@@ -497,3 +502,311 @@ class ShowListsCommand(BaseCommand):
 
         except Exception as e:
             return CommandResult.error(f"Failed to show lists: {e}")
+
+
+@command(
+    name="timelog",
+    description="Show timelog entries with grouping and export options",
+    usage="/timelog [-p|--project=<project>] [-s|--start=<date>] [-e|--end=<date>] [-g|--group=<project|week|month>] [-o|--output=<csv|json|yaml>] [-f|--file=<filename>]",
+    aliases=["tl", "time"],
+)
+class TimelogCommand(BaseCommand):
+    """Command to show and export timelog entries."""
+
+    async def execute(self, args: List[str], context: Any) -> CommandResult:
+        """
+        Execute the timelog command.
+
+        Parameters
+        ----------
+        args : List[str]
+            Command arguments with options
+        context : Any
+            Command execution context (ChatSession)
+
+        Returns
+        -------
+        CommandResult
+            Result of command execution
+        """
+        try:
+            # Get productivity storage from context
+            if (
+                not hasattr(context, "productivity_integration")
+                or context.productivity_integration is None
+            ):
+                return CommandResult.error("Productivity system not available")
+
+            storage: ProductivityStorage = context.productivity_integration.storage
+
+            # Parse options from arguments
+            project_filter: Optional[str] = None
+            start_date: Optional[str] = None
+            end_date: Optional[str] = None
+            group_by: Optional[str] = None
+            output_format: Optional[str] = None
+            output_file: Optional[str] = None
+
+            # Parse command line options
+            i = 0
+            while i < len(args):
+                arg = args[i]
+
+                # Handle long options
+                if arg.startswith("--project="):
+                    project_filter = arg.split("=", 1)[1]
+                elif arg.startswith("--start="):
+                    start_date = arg.split("=", 1)[1]
+                elif arg.startswith("--end="):
+                    end_date = arg.split("=", 1)[1]
+                elif arg.startswith("--group="):
+                    group_by = arg.split("=", 1)[1].lower()
+                    if group_by not in ["project", "week", "month"]:
+                        return CommandResult.error(
+                            f"Invalid group option: {group_by}. Valid options: project, week, month"
+                        )
+                elif arg.startswith("--output="):
+                    output_format = arg.split("=", 1)[1].lower()
+                    if output_format not in ["csv", "json", "yaml"]:
+                        return CommandResult.error(
+                            f"Invalid output format: {output_format}. Valid options: csv, json, yaml"
+                        )
+                elif arg.startswith("--file="):
+                    output_file = arg.split("=", 1)[1]
+
+                # Handle short options
+                elif arg == "-p" and i + 1 < len(args):
+                    i += 1
+                    project_filter = args[i]
+                elif arg == "-s" and i + 1 < len(args):
+                    i += 1
+                    start_date = args[i]
+                elif arg == "-e" and i + 1 < len(args):
+                    i += 1
+                    end_date = args[i]
+                elif arg == "-g" and i + 1 < len(args):
+                    i += 1
+                    group_by = args[i].lower()
+                    if group_by not in ["project", "week", "month"]:
+                        return CommandResult.error(
+                            f"Invalid group option: {group_by}. Valid options: project, week, month"
+                        )
+                elif arg == "-o" and i + 1 < len(args):
+                    i += 1
+                    output_format = args[i].lower()
+                    if output_format not in ["csv", "json", "yaml"]:
+                        return CommandResult.error(
+                            f"Invalid output format: {output_format}. Valid options: csv, json, yaml"
+                        )
+                elif arg == "-f" and i + 1 < len(args):
+                    i += 1
+                    output_file = args[i]
+                elif arg.startswith("-"):
+                    return CommandResult.error(
+                        f"Unknown option: {arg}. Use /help timelog for usage info"
+                    )
+                i += 1
+
+            # Get timelog entries
+            entries = storage.get_entities_by_type(
+                EntityType.TIMELOG, status=None, limit=1000
+            )
+
+            if not entries:
+                return CommandResult.error("No timelog entries found")
+
+            # Filter by project if specified
+            if project_filter:
+                entries = [
+                    entry
+                    for entry in entries
+                    if isinstance(entry, TimelogEntry) and entry.project.lower() == project_filter.lower()
+                ]
+
+            # Filter by date range if specified
+            if start_date or end_date:
+                from dateutil import parser as date_parser
+
+                if start_date:
+                    try:
+                        start_dt = date_parser.parse(start_date).date()
+                        entries = [entry for entry in entries if isinstance(entry, TimelogEntry) and entry.day >= start_dt]
+                    except (ValueError, TypeError):
+                        return CommandResult.error(f"Invalid start date: {start_date}")
+
+                if end_date:
+                    try:
+                        end_dt = date_parser.parse(end_date).date()
+                        entries = [entry for entry in entries if isinstance(entry, TimelogEntry) and entry.day <= end_dt]
+                    except (ValueError, TypeError):
+                        return CommandResult.error(f"Invalid end date: {end_date}")
+
+            if not entries:
+                filter_desc = []
+                if project_filter:
+                    filter_desc.append(f"project '{project_filter}'")
+                if start_date or end_date:
+                    date_range = []
+                    if start_date:
+                        date_range.append(f"from {start_date}")
+                    if end_date:
+                        date_range.append(f"to {end_date}")
+                    filter_desc.append(" ".join(date_range))
+
+                filter_text = (
+                    " with " + " and ".join(filter_desc) if filter_desc else ""
+                )
+                message = f"No timelog entries found{filter_text}"
+                context.console.print(message, style="yellow")
+                return CommandResult.ok(message)
+
+            # Create DataFrame for processing  
+            data = []
+            for entry in entries:
+                if isinstance(entry, TimelogEntry):
+                    data.append(
+                        {
+                            "pseudo_id": entry.pseudo_id,
+                            "day": entry.day,
+                            "project": entry.project,
+                            "hours": entry.hours,
+                            "notes": entry.notes or "",
+                            "content": entry.content,
+                        }
+                    )
+
+            df = pd.DataFrame(data)
+            df["day"] = pd.to_datetime(df["day"])
+
+            # Handle export to file
+            if output_format and output_file:
+                try:
+                    # Create export data
+                    export_df = df.copy()
+                    export_df["day"] = export_df["day"].dt.strftime("%Y-%m-%d")
+
+                    file_path = Path(output_file)
+                    if output_format == "csv":
+                        export_df.to_csv(file_path, index=False)
+                    elif output_format == "json":
+                        export_df.to_json(file_path, orient="records", indent=2)
+                    elif output_format == "yaml":
+                        with open(file_path, "w") as f:
+                            yaml.dump(
+                                export_df.to_dict("records"),
+                                f,
+                                default_flow_style=False,
+                            )
+
+                    return CommandResult.ok(
+                        f"Exported {len(export_df)} entries to {file_path}"
+                    )
+                except Exception as e:
+                    return CommandResult.error(f"Failed to export: {e}")
+
+            # Group by if specified
+            if group_by:
+                if group_by == "project":
+                    grouped = df.groupby("project")["hours"].sum().reset_index()
+                    grouped = grouped.sort_values("hours", ascending=False)
+
+                    # Create Rich table for project grouping
+                    table = Table(
+                        title=f"Time by Project ({grouped['hours'].sum():.1f} total hours)"
+                    )
+                    table.add_column("Project", style="bright_cyan")
+                    table.add_column("Hours", style="white", justify="right")
+                    table.add_column("Percentage", style="dim", justify="right")
+
+                    total_hours = grouped["hours"].sum()
+                    for _, row in grouped.iterrows():
+                        percentage = (row["hours"] / total_hours) * 100
+                        table.add_row(
+                            row["project"], f"{row['hours']:.1f}", f"{percentage:.1f}%"
+                        )
+
+                elif group_by == "week":
+                    df["week"] = df["day"].dt.to_period("W").astype(str)
+                    grouped = df.groupby("week")["hours"].sum().reset_index()
+                    grouped = grouped.sort_values("week")
+
+                    # Create Rich table for week grouping
+                    table = Table(
+                        title=f"Time by Week ({grouped['hours'].sum():.1f} total hours)"
+                    )
+                    table.add_column("Week", style="bright_cyan")
+                    table.add_column("Hours", style="white", justify="right")
+
+                    for _, row in grouped.iterrows():
+                        table.add_row(row["week"], f"{row['hours']:.1f}")
+
+                elif group_by == "month":
+                    df["month"] = df["day"].dt.to_period("M").astype(str)
+                    grouped = df.groupby("month")["hours"].sum().reset_index()
+                    grouped = grouped.sort_values("month")
+
+                    # Create Rich table for month grouping
+                    table = Table(
+                        title=f"Time by Month ({grouped['hours'].sum():.1f} total hours)"
+                    )
+                    table.add_column("Month", style="bright_cyan")
+                    table.add_column("Hours", style="white", justify="right")
+
+                    for _, row in grouped.iterrows():
+                        table.add_row(row["month"], f"{row['hours']:.1f}")
+
+                context.console.print(table)
+                return CommandResult.ok(f"Displayed grouped timelog data")
+
+            else:
+                # Show detailed entries table
+                # Sort by date (most recent first)
+                df = df.sort_values("day", ascending=False)
+
+                # Create Rich table for detailed view
+                title_parts = ["Timelog Entries"]
+                if project_filter:
+                    title_parts.append(f"for {project_filter}")
+                if start_date or end_date:
+                    date_parts = []
+                    if start_date:
+                        date_parts.append(f"from {start_date}")
+                    if end_date:
+                        date_parts.append(f"to {end_date}")
+                    title_parts.append(" ".join(date_parts))
+
+                total_hours = df["hours"].sum()
+                title = f"{' '.join(title_parts)} ({len(df)} entries, {total_hours:.1f} hours)"
+
+                table = Table(title=title)
+                table.add_column("ID", style="cyan", no_wrap=True)
+                table.add_column("Date", style="white", no_wrap=True)
+                table.add_column("Project", style="bright_cyan", no_wrap=True)
+                table.add_column("Hours", style="white", no_wrap=True, justify="right")
+                table.add_column("Notes", style="dim")
+
+                for _, row in df.iterrows():
+                    date_str = row["day"].strftime("%m/%d")
+                    hours_str = f"{row['hours']:.1f}"
+                    if row["hours"] == 8.0:
+                        hours_str = "8.0 (full)"
+                    elif row["hours"] == 4.0:
+                        hours_str = "4.0 (half)"
+
+                    table.add_row(
+                        row["pseudo_id"],
+                        date_str,
+                        row["project"],
+                        hours_str,
+                        (
+                            row["notes"][:50] + "..."
+                            if len(row["notes"]) > 50
+                            else row["notes"]
+                        ),
+                    )
+
+                context.console.print(table)
+                return CommandResult.ok(f"Displayed {len(df)} timelog entries")
+
+        except Exception as e:
+            return CommandResult.error(f"Failed to show timelog: {e}")
