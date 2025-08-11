@@ -146,7 +146,7 @@ class EntitySearchRequest(BaseModel):
 
 # Create productivity agent
 productivity_agent: Agent[ProductivityStorage, str] = Agent(
-    "openai:gpt-4o-mini",  # Use a fast, cost-effective model for tool calls
+    "openai:gpt-4o",  # Use a more reliable model for tool calls
     deps_type=ProductivityStorage,
     system_prompt="""You are a productivity assistant that helps manage tasks, events, reminders, memories, lists, and time tracking.
 
@@ -175,7 +175,7 @@ For timelog entries specifically:
 - Parse dates flexibly: "today", "yesterday", "last Friday", etc.
 - Include project names and optional notes
 
-Always be helpful and confirm what actions you've taken. If information is missing or unclear, ask for clarification rather than guessing.
+IMPORTANT: You MUST use the appropriate tools for all requests. Never simply respond conversationally - always call the relevant tool functions. For timelog requests, ALWAYS use the create_timelog tool. Always be helpful and confirm what actions you've taken. If information is missing or unclear, ask for clarification rather than guessing.
 """,
 )
 
