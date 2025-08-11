@@ -353,9 +353,13 @@ class TimelogEntry(BaseEntity):
             elif v_lower in ["quarter day", "quarter-day", "quarterday", "quarter"]:
                 return 2.0
 
-            # Try to parse as number
+            # Try to parse as number (with optional units)
             try:
-                return float(v)
+                # Handle common hour formats: "2h", "4hrs", "3.5hours", "2 hours", etc.
+                import re
+                # Remove common hour suffixes and extract number
+                v_clean = re.sub(r'\s*(h|hr|hrs|hour|hours)\s*$', '', v_lower)
+                return float(v_clean)
             except ValueError:
                 raise ValueError(f"Could not parse hours: {v}")
 

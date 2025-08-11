@@ -19,6 +19,7 @@ from .models import (
     Reminder,
     Memory,
     ListItem,
+    TimelogEntry,
     EntityType,
     EntityStatus,
     create_entity,
@@ -241,7 +242,16 @@ class ProductivityStorage:
                         "tags": json.loads(metadata.get("list_item_tags", "[]")),
                     }
                 )
-
+            elif entity_type == EntityType.TIMELOG:
+                from datetime import date
+                entity_data.update(
+                    {
+                        "day": datetime.fromisoformat(metadata["timelog_day"]).date() if metadata.get("timelog_day") else date.today(),
+                        "project": metadata.get("timelog_project"),
+                        "hours": float(metadata.get("timelog_hours", 0)),
+                        "notes": metadata.get("timelog_notes"),
+                    }
+                )
             return create_entity(entity_type, **entity_data)
 
         except Exception as e:
@@ -314,6 +324,15 @@ class ProductivityStorage:
                     "list_item_list_name": entity.list_name,
                     "list_item_category": entity.category,
                     "list_item_tags": json.dumps(entity.tags),
+                }
+            )
+        elif isinstance(entity, TimelogEntry):
+            metadata.update(
+                {
+                    "timelog_day": entity.day.isoformat(),
+                    "timelog_project": entity.project,
+                    "timelog_hours": str(entity.hours),
+                    "timelog_notes": entity.notes,
                 }
             )
 
