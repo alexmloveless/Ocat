@@ -180,37 +180,39 @@ class ProductivityIntegration:
 
         # Single keyword + time/date indicators = productivity request
         if keyword_matches >= 1:
-            time_indicators = [
-                "tomorrow",
-                "today",
-                "tonight",
-                "morning",
-                "afternoon",
-                "evening",
-                "monday",
-                "tuesday",
-                "wednesday",
-                "thursday",
-                "friday",
-                "saturday",
-                "sunday",
-                "next",
-                "this",
-                "at",
-                "by",
-                "due",
-                "deadline",
-                "o'clock",
-                "pm",
-                "am",
-                "week",
-                "month",
-                "day",
-                "hour",
-                "minute",
+            # Use word boundary regex patterns to avoid false matches
+            import re
+            time_patterns = [
+                r"\btomorrow\b",
+                r"\btoday\b", 
+                r"\btonight\b",
+                r"\bmorning\b",
+                r"\bafternoon\b",
+                r"\bevening\b",
+                r"\bmonday\b",
+                r"\btuesday\b",
+                r"\bwednesday\b",
+                r"\bthursday\b", 
+                r"\bfriday\b",
+                r"\bsaturday\b",
+                r"\bsunday\b",
+                r"\bnext\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+                r"\bthis\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|evening)\b",
+                r"\bat\s+(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b",
+                r"\bby\b",
+                r"\bdue\b",
+                r"\bdeadline\b",
+                r"\bo'clock\b",
+                r"\d+\s*pm\b",
+                r"\d+\s*am\b",
+                r"\bweek\b",
+                r"\bmonth\b",
+                r"\bday\b",
+                r"\bhour\b",
+                r"\bminute\b",
             ]
 
-            if any(indicator in user_input_lower for indicator in time_indicators):
+            if any(re.search(pattern, user_input_lower) for pattern in time_patterns):
                 return True
 
         return False

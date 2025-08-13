@@ -205,6 +205,22 @@ class DisplayConfig(BaseModel):
     )
 
 
+class ProductivityConfig(BaseModel):
+    """
+    Productivity system configuration.
+
+    Attributes
+    ----------
+    proactive_memory_suggestions : bool
+        Enable proactive suggestions to store personal facts as memories
+    """
+
+    proactive_memory_suggestions: bool = Field(
+        default=False,
+        description="Suggest storing personal facts (e.g., 'I like X') as memories"
+    )
+
+
 class LoggingConfig(BaseModel):
     """
     Logging configuration.
@@ -251,6 +267,8 @@ class Config(BaseModel):
         Embedding configuration
     display : DisplayConfig
         Display and UI configuration
+    productivity : ProductivityConfig
+        Productivity system configuration
     logging : LoggingConfig
         Logging configuration
     locations : Dict[str, str]
@@ -262,6 +280,7 @@ class Config(BaseModel):
     vector_store: VectorStoreConfig = Field(default_factory=VectorStoreConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     display: DisplayConfig = Field(default_factory=DisplayConfig)
+    productivity: ProductivityConfig = Field(default_factory=ProductivityConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     locations: Dict[str, str] = Field(
         default_factory=dict, description="Location aliases"

@@ -263,6 +263,7 @@ class ChatSession:
         if (
             self.productivity_integration
             and self._pending_memory_fact is None  # Don't stack suggestions
+            and self.config.productivity.proactive_memory_suggestions  # Check config setting
         ):
             try:
                 fact = self.productivity_integration.maybe_extract_memory_fact(

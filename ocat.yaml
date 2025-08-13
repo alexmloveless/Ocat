@@ -42,6 +42,10 @@ display:
   high_contrast: true                # Use high contrast colors for accessibility
   prompt_symbol: "🐱 > "                # Prompt symbol for chat input (customizable)
 
+# Productivity Configuration
+productivity:
+  proactive_memory_suggestions: false   # Suggest storing personal facts (e.g., 'I like X') as memories
+
 # Logging Configuration
 logging:
   level: "WARN"                      # Logging level (DEBUG, INFO, WARN, ERROR)
