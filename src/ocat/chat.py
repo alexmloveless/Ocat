@@ -301,16 +301,11 @@ class ChatSession:
                 )
 
                 if productivity_response:
-                    # Add both user message and productivity response to conversation
-                    user_message = Message(role="user", content=user_input)
-                    self.messages.append(user_message)
-
+                    # Display the response without adding to conversation history
+                    # Productivity interactions should not pollute the main LLM context
                     assistant_message = Message(
                         role="assistant", content=productivity_response
                     )
-                    self.messages.append(assistant_message)
-
-                    # Display the response
                     self._display_message(assistant_message)
 
                     # Store exchange in vector store
@@ -356,14 +351,9 @@ class ChatSession:
                 )
 
                 if file_response:
-                    # Add both user message and file response to conversation
-                    user_message = Message(role="user", content=user_input)
-                    self.messages.append(user_message)
-
+                    # Display the response without adding to conversation history
+                    # File operations should not pollute the main LLM context
                     assistant_message = Message(role="assistant", content=file_response)
-                    self.messages.append(assistant_message)
-
-                    # Display the response
                     self._display_message(assistant_message)
 
                     # Store exchange in vector store
