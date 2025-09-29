@@ -244,9 +244,14 @@ class ProductivityStorage:
                 )
             elif entity_type == EntityType.TIMELOG:
                 from datetime import date
+
                 entity_data.update(
                     {
-                        "day": datetime.fromisoformat(metadata["timelog_day"]).date() if metadata.get("timelog_day") else date.today(),
+                        "day": (
+                            datetime.fromisoformat(metadata["timelog_day"]).date()
+                            if metadata.get("timelog_day")
+                            else date.today()
+                        ),
                         "project": metadata.get("timelog_project"),
                         "hours": float(metadata.get("timelog_hours", 0)),
                         "notes": metadata.get("timelog_notes"),

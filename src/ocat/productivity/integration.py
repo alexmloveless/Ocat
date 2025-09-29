@@ -42,7 +42,9 @@ class ProductivityIntegration:
         # The old productivity_keywords, productivity_phrases, and compiled_patterns
         # are no longer used and can be removed in a future cleanup
 
-    def should_use_productivity_agent(self, user_input: str, routing_marker: str = "%") -> bool:
+    def should_use_productivity_agent(
+        self, user_input: str, routing_marker: str = "%"
+    ) -> bool:
         """
         Determine if the user input should be handled by the productivity agent.
         Now uses explicit marker-based routing instead of keyword detection.
