@@ -30,4 +30,5 @@ Thumbs.db
 
 # Project-specific local data (existing entries)
 local_config/
+local/
 vector_stores/
