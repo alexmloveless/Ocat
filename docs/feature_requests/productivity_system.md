@@ -17,15 +17,15 @@ Implement a function calling system that allows LLM models to interact with loca
   - Built-in error handling with retry mechanism
 
 ### Command Interface
-- **Natural Language**: No special prefix required - model recognizes productivity intent
+- **Marker-Based Routing**: Commands must be prefixed with configurable routing marker (default: `%`)
 - **Examples**: 
-  - "create a reminder for next tuesday to call Sam"
-  - "add meeting with team on Friday at 2pm"
-  - "show my tasks for this week"
-  - "mark task 123 as completed"
-- **Processing**: Tools registered with main chat agent, model decides when to use them
-- **Intent Recognition**: Model uses tool descriptions and system prompt to identify productivity requests
-- **Flexible Phrasing**: Handles variations like "add task", "new reminder", "schedule meeting"
+  - "% create a reminder for next tuesday to call Sam"
+  - "% add meeting with team on Friday at 2pm"
+  - "% show my tasks for this week"
+  - "% mark task 123 as completed"
+- **Processing**: Explicit marker detection routes to productivity agent
+- **Configuration**: Routing marker configurable in ocat.yaml (productivity.routing_marker)
+- **Flexible Phrasing**: Handles variations like "add task", "new reminder", "schedule meeting" after marker
 
 ### Storage Architecture
 - **Backend**: Same ChromaDB vector store as conversation history

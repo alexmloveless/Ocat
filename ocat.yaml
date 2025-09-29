@@ -45,6 +45,7 @@ display:
 # Productivity Configuration
 productivity:
   proactive_memory_suggestions: false   # Suggest storing personal facts (e.g., 'I like X') as memories
+  routing_marker: "%"                   # Symbol that must prefix messages to route them to productivity system
 
 # Logging Configuration
 logging:

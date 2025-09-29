@@ -2,11 +2,27 @@
 
 ## Overview
 
-Ocat includes a powerful productivity system that allows you to manage tasks, events, reminders, and memories using natural language commands. The system integrates seamlessly with your chat conversations and stores everything in the same vector database as your chat history.
+Ocat includes a powerful productivity system that allows you to manage tasks, events, reminders, and memories using natural language commands prefixed with a routing marker. The system integrates seamlessly with your chat conversations and stores everything in the same vector database as your chat history.
+
+## Getting Started
+
+To use productivity features, prefix your commands with the routing marker (default: `%`):
+
+```
+🐱 > % add task "finish quarterly report" due next Friday
+🐱 > % create meeting with team tomorrow at 2pm
+🐱 > % show my tasks for this week
+```
+
+The routing marker is configurable in your `ocat.yaml` file:
+```yaml
+productivity:
+  routing_marker: "%"    # Change to any symbol you prefer
+```
 
 ## Features
 
-- **Natural Language Interface**: Create and manage productivity entities using conversational commands
+- **Marker-Based Interface**: Create and manage productivity entities using commands prefixed with a configurable marker (default: `%`)
 - **Multiple Entity Types**: Tasks, events, reminders, and memories
 - **Flexible Date Parsing**: Supports natural date expressions like "next Tuesday" or "in 2 weeks"
 - **Pseudo IDs**: Easy-to-remember identifiers like `task001`, `event001`
@@ -20,9 +36,9 @@ Manage your to-do items with optional due dates, categories, and priority levels
 
 **Examples:**
 ```
-🐱 > create a task to review the quarterly report
-🐱 > add task: finish the presentation slides due next Friday
-🐱 > make a high priority task to call the client by tomorrow
+🐱 > % create a task to review the quarterly report
+🐱 > % add task: finish the presentation slides due next Friday
+🐱 > % make a high priority task to call the client by tomorrow
 ```
 
 **Features:**
@@ -37,9 +53,9 @@ Schedule meetings, appointments, and other time-based activities.
 
 **Examples:**
 ```
-🐱 > add meeting with team on Friday at 2pm
-🐱 > schedule doctor appointment next Tuesday at 10:30am
-🐱 > create event: project deadline on December 15th
+🐱 > % add meeting with team on Friday at 2pm
+🐱 > % schedule doctor appointment next Tuesday at 10:30am
+🐱 > % create event: project deadline on December 15th
 ```
 
 **Features:**

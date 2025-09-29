@@ -213,11 +213,17 @@ class ProductivityConfig(BaseModel):
     ----------
     proactive_memory_suggestions : bool
         Enable proactive suggestions to store personal facts as memories
+    routing_marker : str
+        Symbol that must prefix messages to route them to productivity system
     """
 
     proactive_memory_suggestions: bool = Field(
         default=False,
         description="Suggest storing personal facts (e.g., 'I like X') as memories"
+    )
+    routing_marker: str = Field(
+        default="%",
+        description="Symbol that must prefix messages to route them to productivity system"
     )
 
 

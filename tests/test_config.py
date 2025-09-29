@@ -25,6 +25,7 @@ def test_config_defaults():
     assert config.display.user_label == "User"
     assert config.vector_store.enabled == True
     assert config.logging.level == "WARN"
+    assert config.productivity.routing_marker == "%"
 
 
 def test_config_from_file():
