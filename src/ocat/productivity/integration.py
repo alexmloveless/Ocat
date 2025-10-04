@@ -38,184 +38,32 @@ class ProductivityIntegration:
         # Initialize memory suggester for proactive memory management
         self.memory_suggester = MemorySuggester(storage)
 
-        # Keywords that indicate productivity intent
-        self.productivity_keywords = {
-            # Task-related
-            "task",
-            "todo",
-            "assignment",
-            "work",
-            "project",
-            # Event-related
-            "meeting",
-            "event",
-            "appointment",
-            "schedule",
-            "calendar",
-            # Reminder-related
-            "remind",
-            "reminder",
-            "alert",
-            "notify",
-            # Memory-related
-            "remember",
-            "memory",
-            "note",
-            "save",
-            "store",
-            # List-related
-            "list",
-            "item",
-            "items",
-            "shopping",
-            "books",
-            "travel",
-            "archive",
-            "bucket",
-            # Timelog-related
-            "timelog",
-            "time",
-            "hours",
-            "hour",
-            "worked",
-            "log",
-            "logged",
-            "logging",
-            "track",
-            "tracking",
-            "timesheet",
-            "day",
-            "days",
-            "half",
-            "full",
-            "quarter",
-            # Actions
-            "create",
-            "add",
-            "new",
-            "make",
-            "set",
-            "schedule",
-            "update",
-            "edit",
-            "change",
-            "modify",
-            "mark",
-            "show",
-            "list",
-            "display",
-            "find",
-            "search",
-            "delete",
-            "remove",
-            "cancel",
-            "complete",
-            "done",
-        }
+        # Note: Keyword-based routing has been replaced with explicit marker-based routing
+        # The old productivity_keywords, productivity_phrases, and compiled_patterns
+        # are no longer used and can be removed in a future cleanup
 
-        # Phrases that strongly indicate productivity intent
-        self.productivity_phrases = [
-            r"\b(?:create|add|new|make)\s+(?:a\s+)?(?:task|todo|meeting|event|reminder|appointment|list|item)",
-            r"\b(?:remind|alert|notify)\s+me\b",
-            r"\b(?:remember|save|store)\s+(?:that|this|the)",
-            r"\b(?:schedule|book)\s+(?:a\s+)?(?:meeting|appointment)",
-            r"\b(?:mark|set)\s+(?:task|todo).*(?:complete|done)",
-            r"\b(?:show|list|display)\s+(?:my\s+)?(?:tasks|todos|events|meetings|reminders|lists|items)",
-            r"\b(?:what|when).*(?:due|deadline|scheduled)",
-            r"\b(?:update|edit|change)\s+(?:task|event|reminder|item)",
-            r"\bdue\s+(?:date|by|on|next|tomorrow)",
-            r"\bnext\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)",
-            r"\btomorrow\s+at\b",
-            r"\bin\s+(?:\d+\s+)?(?:minutes|hours|days|weeks)",
-            r"\b(?:add|create).*(?:to|in)\s+(?:list|shopping|books|travel)",
-            r"\b(?:archive|remove)\s+(?:item|list)",
-            r"\bshow\s+(?:all\s+)?lists\b",
-            r"\bitems?\s+in\s+(?:list|shopping|books)",
-            # Timelog-related patterns
-            r"\b(?:add|log|track|record)\s+(?:\d+\s+)?(?:hours?|time)",
-            r"\b(?:worked|work)\s+(?:on|for)",
-            r"\b(?:half|full|quarter)\s+day",
-            r"\bto\s+timelog\b",
-            r"\btimelog\s+(?:for|on)",
-            r"\blog\s+(?:time|hours)",
-            r"\bshow\s+time",
-            r"\btime\s+(?:for|on)\s+project",
-            r"\b(?:worked|work)\s+(?:\d+\s+)?(?:hours?|hrs?)",
-        ]
-
-        # Compile regex patterns for efficiency
-        self.compiled_patterns = [
-            re.compile(pattern, re.IGNORECASE) for pattern in self.productivity_phrases
-        ]
-
-    def should_use_productivity_agent(self, user_input: str) -> bool:
+    def should_use_productivity_agent(
+        self, user_input: str, routing_marker: str = "%"
+    ) -> bool:
         """
         Determine if the user input should be handled by the productivity agent.
+        Now uses explicit marker-based routing instead of keyword detection.
 
         Parameters
         ----------
         user_input : str
             The user's input message
+        routing_marker : str
+            The marker symbol that must prefix productivity messages
 
         Returns
         -------
         bool
             True if this should be handled by productivity agent
         """
-        user_input_lower = user_input.lower()
-
-        # Check for strong productivity phrase patterns
-        for pattern in self.compiled_patterns:
-            if pattern.search(user_input):
-                return True
-
-        # Check for productivity keywords (need multiple matches for confidence)
-        keyword_matches = sum(
-            1 for keyword in self.productivity_keywords if keyword in user_input_lower
-        )
-
-        # If multiple productivity keywords, likely a productivity request
-        if keyword_matches >= 2:
-            return True
-
-        # Single keyword + time/date indicators = productivity request
-        if keyword_matches >= 1:
-            # Use word boundary regex patterns to avoid false matches
-            import re
-            time_patterns = [
-                r"\btomorrow\b",
-                r"\btoday\b", 
-                r"\btonight\b",
-                r"\bmorning\b",
-                r"\bafternoon\b",
-                r"\bevening\b",
-                r"\bmonday\b",
-                r"\btuesday\b",
-                r"\bwednesday\b",
-                r"\bthursday\b", 
-                r"\bfriday\b",
-                r"\bsaturday\b",
-                r"\bsunday\b",
-                r"\bnext\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
-                r"\bthis\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|evening)\b",
-                r"\bat\s+(?:\d|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b",
-                r"\bby\b",
-                r"\bdue\b",
-                r"\bdeadline\b",
-                r"\bo'clock\b",
-                r"\d+\s*pm\b",
-                r"\d+\s*am\b",
-                r"\bweek\b",
-                r"\bmonth\b",
-                r"\bday\b",
-                r"\bhour\b",
-                r"\bminute\b",
-            ]
-
-            if any(re.search(pattern, user_input_lower) for pattern in time_patterns):
-                return True
-
-        return False
+        # Check if the input starts with the routing marker
+        stripped_input = user_input.strip()
+        return stripped_input.startswith(routing_marker)
 
     async def process_productivity_request(
         self, user_input: str, chat_session: "ChatSession"

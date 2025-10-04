@@ -11,16 +11,18 @@ The following slash commands are available to assist users:
 - `/clear` - Clear conversation history
 - `/exit`, `/quit`, `/q` - Exit the application
 
-### Productivity Features (Natural Language)
-Ocat includes a powerful productivity system for managing tasks, events, reminders, and memories using natural language:
+### Productivity Features (Marker-Based)
+Ocat includes a powerful productivity system for managing tasks, events, reminders, and memories using commands prefixed with a routing marker (default: `%`):
 
-**Tasks**: `create a task to review quarterly report`, `add task: finish presentation due Friday`, `list tasks due today`, `mark task001 completed`
+**Tasks**: `% create a task to review quarterly report`, `% add task: finish presentation due Friday`, `% list tasks due today`, `% mark task001 completed`
 
-**Events**: `schedule meeting with team Friday at 2pm`, `add doctor appointment next Tuesday 10:30am`, `list events this week`
+**Events**: `% schedule meeting with team Friday at 2pm`, `% add doctor appointment next Tuesday 10:30am`, `% list events this week`
 
-**Reminders**: `remind me to call Sam next Tuesday`, `create reminder to water plants every Monday`, `show active reminders`
+**Reminders**: `% remind me to call Sam next Tuesday`, `% create reminder to water plants every Monday`, `% show active reminders`
 
-**Memories**: `remember that Sarah prefers tea over coffee`, `save memory: wifi password is SecureNet123`, `search memories for "password"`
+**Memories**: `% remember that Sarah prefers tea over coffee`, `% save memory: wifi password is SecureNet123`, `% search memories for "password"`
+
+**Important**: Only commands prefixed with the routing marker (configurable in ocat.yaml as `productivity.routing_marker`) will be routed to the productivity system. Regular chat without the marker will be handled by the main LLM.
 
 ### File Operations  
 - `/file read <path>` - Read and display file contents

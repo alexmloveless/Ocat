@@ -24,6 +24,7 @@ from ..productivity.models import (
 )
 from ..productivity.formatters import _format_datetime_short
 from rich.table import Table
+import shlex
 
 
 @command(
@@ -819,3 +820,208 @@ class TimelogCommand(BaseCommand):
 
         except Exception as e:
             return CommandResult.error(f"Failed to show timelog: {e}")
+
+
+@command(
+    name="at",
+    description="Add a task directly without LLM - /at <category> <priority> <task text>",
+    usage='/at <category> <priority> "<task text>"',
+    aliases=["add-task"],
+)
+class AddTaskDirectCommand(BaseCommand):
+    """Command to add a task directly without engaging the LLM."""
+
+    async def execute(self, args: List[str], context: Any) -> CommandResult:
+        """
+        Execute the add task command.
+
+        Parameters
+        ----------
+        args : List[str]
+            Command arguments: <category> <priority> "<task text>"
+        context : Any
+            Command execution context (ChatSession)
+
+        Returns
+        -------
+        CommandResult
+            Result of command execution
+        """
+        try:
+            # Get productivity storage from context
+            if (
+                not hasattr(context, "productivity_integration")
+                or context.productivity_integration is None
+            ):
+                return CommandResult.error("Productivity system not available")
+
+            storage: ProductivityStorage = context.productivity_integration.storage
+
+            # Parse arguments: category priority "task text"
+            if len(args) < 3:
+                return CommandResult.error(
+                    'Usage: /at <category> <priority> "<task text>". Example: /at chores high "do something boring"'
+                )
+
+            # Join all args and use shlex to properly handle quoted strings
+            args_str = " ".join(args)
+            try:
+                parsed_args = shlex.split(args_str)
+            except ValueError as e:
+                return CommandResult.error(
+                    f"Error parsing arguments: {e}. Make sure to quote the task text properly."
+                )
+
+            if len(parsed_args) < 3:
+                return CommandResult.error(
+                    'Usage: /at <category> <priority> "<task text>". Example: /at chores high "do something boring"'
+                )
+
+            category = parsed_args[0]
+            priority = parsed_args[1].lower()
+            task_text = " ".join(parsed_args[2:])
+
+            # Validate priority
+            valid_priorities = ["low", "medium", "high", "urgent"]
+            if priority not in valid_priorities:
+                return CommandResult.error(
+                    f"Invalid priority '{priority}'. Valid priorities: {', '.join(valid_priorities)}"
+                )
+
+            # Create the task directly
+            task = Task(
+                content=task_text,
+                category=category,
+                priority=priority,  # type: ignore[arg-type]
+                status=EntityStatus.ACTIVE,
+            )
+
+            # Store the task
+            pseudo_id = storage.create_entity(task)
+
+            # Show success message
+            context.console.print(
+                f"✅ Created task {pseudo_id}: {task_text}", style="green"
+            )
+            context.console.print(
+                f"   Category: {category}, Priority: {priority.title()}", style="dim"
+            )
+
+            # Now show the task list using the same logic as ShowTasksCommand
+            # Get open tasks (active and in-progress)
+            active_tasks = storage.get_entities_by_type(
+                EntityType.TASK, status=EntityStatus.ACTIVE, limit=100
+            )
+            in_progress_tasks = storage.get_entities_by_type(
+                EntityType.TASK, status=EntityStatus.IN_PROGRESS, limit=100
+            )
+            tasks = active_tasks + in_progress_tasks
+
+            # Sort by created date (newest first)
+            tasks.sort(key=lambda x: x.created_at, reverse=True)
+
+            if not tasks:
+                context.console.print("No open tasks found", style="yellow")
+                return CommandResult.ok(f"Created task {pseudo_id}")
+
+            # Create Rich table matching the /st command format
+            title = f"Open Tasks (sorted by created ↓) ({len(tasks)})"
+
+            table = Table(title=title)
+            table.add_column("S", style="white", no_wrap=True, width=3)
+            table.add_column("Priority", style="white", no_wrap=True)
+            table.add_column("Category", style="white", no_wrap=True)
+            table.add_column("ID", style="cyan", no_wrap=True)
+            table.add_column("Task", style="white")
+            table.add_column("Due", style="dim yellow", no_wrap=True)
+
+            # Add rows
+            for task in tasks:
+                # Task ID - make it brighter for high priority tasks
+                task_id = task.pseudo_id
+                if hasattr(task, "priority") and task.priority:
+                    if task.priority.lower() == "urgent":
+                        task_id = f"[bold bright_red]{task.pseudo_id}[/bold bright_red]"
+                    elif task.priority.lower() == "high":
+                        task_id = (
+                            f"[bold bright_yellow]{task.pseudo_id}[/bold bright_yellow]"
+                        )
+
+                # Status emoji
+                status_emoji = {
+                    "active": "🔵",
+                    "completed": "✅",
+                    "in_progress": "🟡",
+                    "deleted": "🗑️",
+                }.get(task.status.value, "🔵")
+
+                # Priority column with visual emphasis for high priority
+                priority_text = ""
+                if hasattr(task, "priority") and task.priority:
+                    priority_map = {
+                        "urgent": "[bold red]🔥 URGENT[/bold red]",
+                        "high": "[bold yellow]⚡ HIGH[/bold yellow]",
+                        "medium": "[dim white]● MED[/dim white]",
+                        "low": "[dim]○ LOW[/dim]",
+                    }
+                    priority_text = priority_map.get(
+                        task.priority.lower(), task.priority.upper()
+                    )
+
+                # Task description - make high priority tasks bright and visible
+                task_desc = task.content
+                if hasattr(task, "priority") and task.priority:
+                    if task.priority.lower() == "urgent":
+                        task_desc = f"[bold bright_red]{task.content}[/bold bright_red]"
+                    elif task.priority.lower() == "high":
+                        task_desc = (
+                            f"[bold bright_yellow]{task.content}[/bold bright_yellow]"
+                        )
+
+                # Category column with color coding
+                category_display = ""
+                if hasattr(task, "category") and task.category:
+                    # Color map for categories (using simple hash-based assignment)
+                    category_colors = [
+                        "bright_cyan",
+                        "bright_magenta",
+                        "bright_green",
+                        "bright_blue",
+                        "magenta",
+                        "green",
+                        "blue",
+                        "cyan",
+                    ]
+                    # Use hash of category name to consistently assign color
+                    color_index = hash(task.category.lower()) % len(category_colors)
+                    color = category_colors[color_index]
+                    category_display = f"[{color}]{task.category}[/{color}]"
+
+                # Due date column
+                due_date = ""
+                if isinstance(task, Task) and task.due_date:
+                    due_date = _format_datetime_short(task.due_date)
+                elif isinstance(task, Event):
+                    due_date = _format_datetime_short(task.start_datetime)
+                elif isinstance(task, Reminder):
+                    due_date = _format_datetime_short(task.trigger_datetime)
+
+                table.add_row(
+                    status_emoji,
+                    priority_text,
+                    category_display,
+                    task_id,
+                    task_desc,
+                    due_date,
+                )
+
+            # Display table
+            context.console.print("")
+            context.console.print(table)
+
+            return CommandResult.ok(
+                f"Created task {pseudo_id} and displayed {len(tasks)} open tasks"
+            )
+
+        except Exception as e:
+            return CommandResult.error(f"Failed to add task: {e}")

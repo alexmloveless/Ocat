@@ -357,8 +357,9 @@ class TimelogEntry(BaseEntity):
             try:
                 # Handle common hour formats: "2h", "4hrs", "3.5hours", "2 hours", etc.
                 import re
+
                 # Remove common hour suffixes and extract number
-                v_clean = re.sub(r'\s*(h|hr|hrs|hour|hours)\s*$', '', v_lower)
+                v_clean = re.sub(r"\s*(h|hr|hrs|hour|hours)\s*$", "", v_lower)
                 return float(v_clean)
             except ValueError:
                 raise ValueError(f"Could not parse hours: {v}")
