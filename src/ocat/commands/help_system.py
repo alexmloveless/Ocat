@@ -65,6 +65,7 @@ class HelpRegistry:
 
 ## 📚 **Help Sections**
 - `/help commands` - All slash commands
+- `/help speak` - Text-to-speech functionality
 - `/help productivity` - Tasks, lists, and memory management
 - `/help files` - File operations and location aliases
 - `/help chat` - Chat features and conversation management
@@ -74,6 +75,7 @@ class HelpRegistry:
 ## 🚀 **Quick Examples**
 ```
 /st                    # Show open tasks
+/speak                 # Speak last response
 /file read config.yaml # Read a file
 /locations             # Show location aliases
 "create a task to review the report due Friday"
@@ -130,6 +132,10 @@ class HelpRegistry:
 - `/vget <id|session|thread>` - Retrieve exchanges
 - `/vquery <query> [k]` - Query similar exchanges
 - `/vstats` - Show vector store statistics
+
+## 🔊 **Text-to-Speech**
+- `/speak [voice] [model]` (alias: `/s`) - Speak last response
+- `/speaklike "instructions" [voice] [model]` (alias: `/sl`) - Speak with custom instructions
 
 ## 💭 **Memory & Productivity**
 - `/remember <type> <text>` - Store information
@@ -649,6 +655,188 @@ Then use shortcuts:
             aliases=["tip", "tips", "best", "practices", "workflow"],
         )
         self.register_section("tips", tips)
+
+        # TTS (Text-to-Speech) section
+        tts = HelpSection(
+            title="Text-to-Speech Commands",
+            content="""# 🔊 **Text-to-Speech Commands**
+
+Convert assistant responses to speech using OpenAI's TTS API and play them directly through your terminal.
+
+## 🎵 **Commands**
+
+### `/speak [voice] [model]` (alias: `/s`)
+Convert the last assistant response to speech and play it.
+
+**Examples:**
+```
+/speak                    # Use default voice and model
+/s                        # Same as /speak (alias)
+/speak nova               # Use nova voice with default model  
+/speak fable tts-1-hd     # Use fable voice with tts-1-hd model
+```
+
+### `/speaklike "instructions" [voice] [model]` (alias: `/sl`)
+Convert the last assistant response to speech with custom instructions for how it should be spoken.
+
+**Examples:**
+```
+/speaklike "speak slowly and clearly"
+/sl "speak in an excited tone"
+/speaklike "speak in an excited tone" nova
+/speaklike "read this like a news anchor" fable tts-1-hd
+```
+
+## 🎤 **Available Voices**
+
+- **alloy** - Balanced, neutral voice suitable for most content
+- **echo** - Clear, professional voice great for documentation
+- **fable** - Warm, expressive voice perfect for storytelling
+- **nova** - Bright, energetic voice (default) - friendly and conversational
+- **onyx** - Deep, authoritative voice ideal for serious content
+- **shimmer** - Soft, gentle voice with a calming tone
+
+## 🎛️ **Available Models**
+
+- **tts-1** - Standard quality, faster generation (default)
+- **tts-1-hd** - Higher quality audio, slower generation
+
+## ⚙️ **Configuration**
+
+Configure TTS settings in your `ocat.yaml` file:
+
+```yaml
+tts:
+  enabled: true              # Enable/disable TTS functionality
+  voice: "nova"              # Default voice (see available voices above)
+  model: "tts-1"             # Default model (tts-1 or tts-1-hd)
+  audio_dir: "/tmp"          # Directory to store MP3 files
+```
+
+## 🔑 **Prerequisites**
+
+### **1. OpenAI API Key**
+Set your OpenAI API key as an environment variable:
+```bash
+export OPENAI_API_KEY="your-openai-api-key-here"
+```
+
+### **2. Audio Player**
+Install a compatible audio player for your system:
+
+**Linux:**
+```bash
+# Install one of these players:
+sudo apt install mpg123        # Recommended
+sudo apt install ffmpeg        # Includes ffplay
+sudo apt install alsa-utils    # Includes aplay
+sudo apt install pulseaudio-utils  # Includes paplay
+```
+
+**macOS:**
+- `afplay` is built-in (no installation needed)
+
+**Windows:**
+- Uses built-in `start` command (no installation needed)
+
+## 📁 **Audio File Management**
+
+- MP3 files are saved to the directory specified in `tts.audio_dir`
+- Files are named with timestamps: `ocat_tts_<timestamp>.mp3`
+- Files are played immediately after generation
+- Audio files remain on disk for later playback if needed
+
+## 🧹 **Text Processing**
+
+The TTS system automatically cleans responses for optimal speech:
+
+- **Code blocks** → Replaced with "[code block]"
+- **Markdown formatting** → Stripped (bold, italic, headers, links)
+- **List markers** → Removed
+- **Extra whitespace** → Normalized
+
+This ensures clean, natural-sounding speech without markdown artifacts.
+
+## 📋 **Usage Examples**
+
+### **Basic Usage**
+```
+User: What is Python?
+Assistant: Python is a high-level programming language known for its simplicity...
+User: /speak
+🔊 Generating speech using nova voice...
+🎵 Audio saved to: /tmp/ocat_tts_1234567890.mp3
+🎧 Playing audio...
+✅ Audio playback completed
+```
+
+### **Custom Voice**
+```
+User: /speak fable
+🔊 Generating speech using fable voice...
+```
+
+### **Custom Instructions**
+```
+User: /speaklike "speak like a helpful teacher explaining to a student"
+🔊 Generating speech using nova voice...
+```
+
+### **Full Customization**
+```
+User: /sl "read this dramatically like a movie narrator" onyx tts-1-hd
+🔊 Generating speech using onyx voice...
+```
+
+## ❌ **Error Handling**
+
+Common errors and solutions:
+
+**"TTS is disabled in configuration"**
+- Set `tts.enabled: true` in your `ocat.yaml` file
+
+**"OPENAI_API_KEY environment variable not set"**
+- Set your API key: `export OPENAI_API_KEY="your-key-here"`
+
+**"No suitable audio player found"**
+- Install an audio player: `sudo apt install mpg123` (Linux)
+
+**"No assistant response found to speak"**
+- Make sure there's a recent assistant response in the conversation
+
+**"Invalid voice 'xyz'"**
+- Use one of: alloy, echo, fable, nova, onyx, shimmer
+
+**"Invalid model 'xyz'"**
+- Use either: tts-1, tts-1-hd
+
+## 🚀 **Performance Tips**
+
+- **tts-1** is faster for quick responses
+- **tts-1-hd** provides better audio quality for important content
+- Large responses may take longer to generate
+- Audio playback happens asynchronously
+- Check your system volume if audio doesn't play
+
+## 🎯 **Best Practices**
+
+1. **Start with defaults** - Try `/speak` first to test your setup
+2. **Choose appropriate voices** - nova for casual, onyx for serious content
+3. **Use custom instructions** - Add personality with `/speaklike`
+4. **Test your audio setup** - Verify volume and speakers work
+5. **Check storage space** - Audio files accumulate in the configured directory
+
+## 💡 **Pro Tips**
+
+- Use `/s` as a quick alias for `/speak`
+- Combine with other commands: first get info, then speak it
+- Perfect for accessibility and hands-free operation
+- Great for reviewing long responses while doing other tasks
+- Try different voices to find your preference
+""",
+            aliases=["speak", "tts", "speech", "audio", "voice"],
+        )
+        self.register_section("tts", tts)
 
     def _generate_overview(self) -> str:
         """Generate the main help overview."""

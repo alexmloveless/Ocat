@@ -251,6 +251,44 @@ class LoggingConfig(BaseModel):
         return v.upper()
 
 
+class TTSConfig(BaseModel):
+    """
+    Text-to-Speech configuration.
+
+    Attributes
+    ----------
+    enabled : bool
+        Enable TTS functionality
+    voice : str
+        Default voice to use for TTS (Nova, Alloy, Echo, Fable, Onyx, Shimmer)
+    model : str
+        TTS model to use (tts-1, tts-1-hd)
+    audio_dir : str
+        Directory to store audio files (defaults to /tmp if not set)
+    """
+
+    enabled: bool = Field(default=True, description="Enable TTS functionality")
+    voice: str = Field(default="nova", description="Default TTS voice")
+    model: str = Field(default="tts-1", description="TTS model")
+    audio_dir: str = Field(default="/tmp", description="Directory for audio files")
+
+    @field_validator("voice")
+    def validate_voice(cls, v):
+        """Validate voice is one of the accepted values."""
+        valid_voices = ["alloy", "echo", "fable", "nova", "onyx", "shimmer"]
+        if v.lower() not in valid_voices:
+            raise ValueError(f"Voice must be one of: {valid_voices}")
+        return v.lower()
+
+    @field_validator("model")
+    def validate_model(cls, v):
+        """Validate model is one of the accepted values."""
+        valid_models = ["tts-1", "tts-1-hd"]
+        if v not in valid_models:
+            raise ValueError(f"Model must be one of: {valid_models}")
+        return v
+
+
 class Config(BaseModel):
     """
     Main configuration class for Ocat application.
@@ -271,6 +309,8 @@ class Config(BaseModel):
         Productivity system configuration
     logging : LoggingConfig
         Logging configuration
+    tts : TTSConfig
+        Text-to-Speech configuration
     locations : Dict[str, str]
         Location aliases for commands
     """
@@ -282,6 +322,7 @@ class Config(BaseModel):
     display: DisplayConfig = Field(default_factory=DisplayConfig)
     productivity: ProductivityConfig = Field(default_factory=ProductivityConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    tts: TTSConfig = Field(default_factory=TTSConfig)
     locations: Dict[str, str] = Field(
         default_factory=dict, description="Location aliases"
     )

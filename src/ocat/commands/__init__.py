@@ -219,3 +219,4 @@ from . import context_commands
 from . import remember_command
 from . import clipboard_commands
 from . import productivity_commands
+from . import tts_commands

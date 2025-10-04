@@ -1,0 +1,20 @@
+# Example Ocat configuration with TTS settings
+# Copy this to ~/.ocat/config.yaml or ocat.yaml to use
+
+llm:
+  model: "gpt-4o-mini"
+  temperature: 1.0
+
+tts:
+  enabled: true
+  voice: "nova"  # alloy, echo, fable, nova, onyx, shimmer
+  model: "tts-1"  # tts-1 or tts-1-hd
+  audio_dir: "/tmp"  # Directory to store MP3 files
+
+display:
+  user_label: "User"
+  assistant_label: "Assistant"
+  high_contrast: true
+
+logging:
+  level: "WARN"
