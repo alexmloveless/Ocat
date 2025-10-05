@@ -70,6 +70,9 @@ When you encounter remembered information in the context, pay attention to the t
 ### Context Management
 - `/showcontext [on|off]` - Toggle display of context in responses
 
+### Chat Modes
+- `/casual [on|off]` - Toggle casual chat mode for informal conversations
+
 ## Ocat Features
 
 - **AI Tool Integration**: You have direct access to file operations and productivity tools - use them naturally in conversation

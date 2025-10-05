@@ -220,3 +220,4 @@ from . import remember_command
 from . import clipboard_commands
 from . import productivity_commands
 from . import tts_commands
+from . import casual_command

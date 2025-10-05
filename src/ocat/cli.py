@@ -117,6 +117,12 @@ def create_parser() -> argparse.ArgumentParser:
         help="Enable debug mode with detailed error traces",
     )
 
+    parser.add_argument(
+        "--casual",
+        action="store_true",
+        help="Start in casual chat mode for informal conversations",
+    )
+
     # Headless mode options for vector store operations
     headless_group = parser.add_argument_group(
         "headless mode", "Non-interactive operations for automation"
@@ -273,9 +279,34 @@ def main(args: Optional[List[str]] = None) -> int:
         # Display welcome message
         display_welcome(console, config)
 
-        # Initialize chat session (check for dummy mode)
+        # Initialize chat session (check for dummy mode and casual mode)
         dummy_mode = getattr(parsed_args, "dummy_mode", False)
+        casual_mode_start = getattr(parsed_args, "casual", False)
         chat_session = ChatSession(config, console, dummy_mode=dummy_mode)
+        
+        # Enable casual mode at startup if requested
+        if casual_mode_start:
+            try:
+                from .commands.casual_command import CasualCommand
+                from pathlib import Path
+                from .messages import Message
+                
+                # Load and add the casual mode prompt
+                current_dir = Path(__file__).parent
+                prompt_file = current_dir / "prompts" / "casual_mode_prompt.md"
+                
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    casual_prompt = f.read()
+                
+                casual_message = Message(role="system", content=casual_prompt)
+                chat_session.messages.append(casual_message)
+                chat_session._casual_mode = True
+                
+                console.print("🎉 Started in casual mode! Ready for some laid-back chatting.", style="green")
+                
+            except Exception as e:
+                logger.warning(f"Failed to enable casual mode at startup: {e}")
+                console.print(f"⚠️  Failed to enable casual mode: {e}", style="yellow")
 
         # Run the async main loop
         return asyncio.run(run_interactive_chat(chat_session, console, config))

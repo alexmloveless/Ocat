@@ -258,11 +258,12 @@ class WriteJsonCommand(BaseCommand):
 
 @command(
     name="writemd",
-    description="Export conversation to Markdown",
-    usage="/writemd <filepath>",
+    aliases=["w"],
+    description="Export thread to Markdown (without system prompt)",
+    usage="/writemd <filepath> (alias: /w)",
 )
 class WriteMarkdownCommand(BaseCommand):
-    """Command to export conversation history to Markdown format."""
+    """Command to export conversation thread to Markdown format."""
 
     async def execute(self, args: List[str], context: Any) -> CommandResult:
         """
@@ -283,6 +284,85 @@ class WriteMarkdownCommand(BaseCommand):
         if not args:
             return CommandResult.error(
                 "No output file specified. Usage: /writemd <filepath>"
+            )
+
+        try:
+            # Generate markdown content (excluding system messages)
+            md_content = []
+            md_content.append("# Thread Export")
+            md_content.append("")
+            md_content.append(f"**Model:** {context.config.llm.model}")
+            md_content.append(f"**Temperature:** {context.config.llm.temperature}")
+            md_content.append("")
+            md_content.append("---")
+            md_content.append("")
+
+            for msg in context.messages:
+                if msg.role == "system":
+                    # Skip system messages for thread export
+                    continue
+                elif msg.role == "user":
+                    md_content.append(f"## {context.config.display.user_label}")
+                    md_content.append("")
+                    md_content.append(msg.content)
+                elif msg.role == "assistant":
+                    md_content.append(f"## {context.config.display.assistant_label}")
+                    md_content.append("")
+                    md_content.append(msg.content)
+
+                md_content.append("")
+                md_content.append("---")
+                md_content.append("")
+
+            # Resolve path with location aliases
+            try:
+                output_path = resolve_path_with_aliases(
+                    args[0], context.config.locations
+                )
+            except ValueError as e:
+                return CommandResult.error(f"Location alias error: {e}")
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(md_content))
+
+            context.console.print(
+                f"✅ Thread exported to: {output_path}", style="green"
+            )
+
+            return CommandResult.ok(f"Thread exported to {output_path}")
+
+        except Exception as e:
+            return CommandResult.error(f"Failed to export thread: {e}")
+
+
+@command(
+    name="writemdall",
+    description="Export full conversation to Markdown (with system prompt)",
+    usage="/writemdall <filepath>",
+)
+class WriteMarkdownAllCommand(BaseCommand):
+    """Command to export full conversation history to Markdown format."""
+
+    async def execute(self, args: List[str], context: Any) -> CommandResult:
+        """
+        Execute the writemdall command.
+
+        Parameters
+        ----------
+        args : List[str]
+            Command arguments - output file path
+        context : Any
+            Command execution context (ChatSession)
+
+        Returns
+        -------
+        CommandResult
+            Result of command execution
+        """
+        if not args:
+            return CommandResult.error(
+                "No output file specified. Usage: /writemdall <filepath>"
             )
 
         try:

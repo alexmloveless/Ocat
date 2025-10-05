@@ -69,14 +69,14 @@ class ModelConfig(BaseModel):
             try:
                 # Get the package resource path for the base prompt file
                 package_files = resource_files("ocat")
-                base_prompt_path = package_files / "base_prompt.md"
+                base_prompt_path = package_files / "prompts" / "base_prompt.md"
                 self.base_prompt_file = str(base_prompt_path)
             except Exception:
                 # Fallback to relative path if package resources fail
                 import ocat
 
                 ocat_dir = Path(ocat.__file__).parent
-                self.base_prompt_file = str(ocat_dir / "base_prompt.md")
+                self.base_prompt_file = str(ocat_dir / "prompts" / "base_prompt.md")
         return self
 
 

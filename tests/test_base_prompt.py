@@ -29,6 +29,7 @@ class TestBasePrompt:
         # Should set the path to package location
         assert model_config.base_prompt_file != ""
         assert "base_prompt.md" in model_config.base_prompt_file
+        assert "prompts" in model_config.base_prompt_file
 
     def test_base_prompt_loading_default(self):
         """Test loading base prompt with default settings."""

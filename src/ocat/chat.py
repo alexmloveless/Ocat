@@ -6,7 +6,6 @@ LLM interactions, and conversation management.
 """
 
 from typing import List, Dict, Any, Optional, Union, Tuple
-from dataclasses import dataclass
 import logging
 import asyncio
 import uuid
@@ -34,31 +33,7 @@ from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .config import Config
-
-
-@dataclass
-class Message:
-    """
-    Represents a single message in the chat conversation.
-
-    Attributes
-    ----------
-    role : str
-        Role of the message sender ("user", "assistant", "system")
-    content : str
-        Content of the message
-    timestamp : float
-        Unix timestamp when message was created
-    """
-
-    role: str
-    content: str
-    timestamp: Optional[float] = None
-
-    def __post_init__(self):
-        """Set timestamp if not provided."""
-        if self.timestamp is None:
-            self.timestamp = time.time()
+from .messages import Message
 
 
 class ChatSession:

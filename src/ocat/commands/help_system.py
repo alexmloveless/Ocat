@@ -373,7 +373,9 @@ locations:
 ### **Export Conversations**
 ```
 /writejson chat.json       # Export to JSON
-/writemd chat.md           # Export to Markdown
+/writemd chat.md           # Export thread to Markdown (no system prompt)
+/w chat.md                 # Alias for /writemd
+/writemdall chat.md        # Export full conversation with system prompt
 /writeresp last.md         # Export last exchange
 /writecode code.py         # Extract code blocks
 ```
@@ -448,8 +450,9 @@ The AI can directly access tools through natural language:
 ## 📋 **Clipboard & Export**
 ```
 /copy                 # Copy last response
-/writejson chat.json  # Export conversation
-/writemd chat.md      # Export to Markdown
+/writejson chat.json  # Export conversation to JSON
+/writemd chat.md      # Export thread to Markdown (alias: /w)
+/writemdall chat.md   # Export full conversation with system prompt
 ```
 
 ## ⌨️ **Input & Navigation**
