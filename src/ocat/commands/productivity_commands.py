@@ -1025,3 +1025,80 @@ class AddTaskDirectCommand(BaseCommand):
 
         except Exception as e:
             return CommandResult.error(f"Failed to add task: {e}")
+
+
+@command(
+    name="ct",
+    description="Complete a task directly without LLM - /ct <task_id>",
+    usage='/ct <task_id>',
+    aliases=["complete-task"],
+)
+class CompleteTaskDirectCommand(BaseCommand):
+    """Command to complete a task directly without engaging the LLM."""
+
+    async def execute(self, args: List[str], context: Any) -> CommandResult:
+        """
+        Execute the complete task command.
+
+        Parameters
+        ----------
+        args : List[str]
+            Command arguments: <task_id>
+        context : Any
+            Command execution context (ChatSession)
+
+        Returns
+        -------
+        CommandResult
+            Result of command execution
+        """
+        try:
+            # Get productivity storage from context
+            if (
+                not hasattr(context, "productivity_integration")
+                or context.productivity_integration is None
+            ):
+                return CommandResult.error("Productivity system not available")
+
+            storage: ProductivityStorage = context.productivity_integration.storage
+
+            # Parse arguments: task_id
+            if len(args) != 1:
+                return CommandResult.error(
+                    'Usage: /ct <task_id>. Example: /ct T123'
+                )
+
+            task_id = args[0]
+
+            # Check if the task exists
+            entity = storage.get_entity_by_pseudo_id(task_id)
+            if not entity:
+                return CommandResult.error(f"No entity found with ID '{task_id}'")
+
+            if not isinstance(entity, Task):
+                return CommandResult.error(f"{task_id} is not a task. Only tasks can be completed.")
+
+            # Check if already completed
+            if entity.status == EntityStatus.COMPLETED:
+                return CommandResult.error(f"Task {task_id} is already completed")
+
+            # Update to completed status
+            success = storage.update_entity(
+                task_id, {"status": EntityStatus.COMPLETED.value}
+            )
+
+            if not success:
+                return CommandResult.error(f"Failed to complete task {task_id}. Please try again.")
+
+            # Show success message
+            context.console.print(
+                f"✅ Completed task {task_id}: {entity.content}", style="green"
+            )
+            context.console.print(
+                f"   Category: {entity.category}, Priority: {entity.priority.title() if entity.priority else 'None'}", style="dim"
+            )
+
+            return CommandResult.ok(f"Completed task {task_id}")
+
+        except Exception as e:
+            return CommandResult.error(f"Failed to complete task: {e}")

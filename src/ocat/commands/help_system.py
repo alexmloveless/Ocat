@@ -245,6 +245,17 @@ Create and manage to-do items with priorities and categories.
 - Due dates with flexible parsing
 - Pseudo IDs (task001, task002, etc.)
 
+### Direct Task Commands (bypass AI):
+- `/at <category> <priority> "<task text>"` - Add task directly without LLM
+- `/ct <task_id>` - Complete task directly without LLM
+
+#### Examples:
+```
+/at work high "finish quarterly report"
+/at personal medium "book dentist appointment"
+/ct T123                               # Complete task T123
+```
+
 ## 📝 **Lists**
 Organize collections of items in named lists.
 
