@@ -5,37 +5,18 @@ Web search slash commands for Ocat.
 from typing import List, Any
 import logging
 
-from . import Command, CommandResult, CommandError, register_command
+from . import command, BaseCommand, CommandResult, CommandError
 from ..web_search import SearchEngine, ContentScraper, ContentProcessor
 from ..utils.logging import setup_logger, LogLevel
 
 
-@register_command("web")
-class WebSearchCommand(Command):
+@command(
+    name="web",
+    description="Search the web and retrieve content from results",
+    usage='/web "search query" [search_engine]'
+)
+class WebSearchCommand(BaseCommand):
     """Web search command that fetches and processes search results."""
-    
-    name = "web"
-    description = "Search the web and retrieve content from results"
-    usage = '/web "search query" [search_engine]'
-    
-    def __init__(self, config):
-        """
-        Initialize web search command.
-        
-        Parameters
-        ----------
-        config : Config
-            Configuration object
-        """
-        self.config = config
-        self.logger = setup_logger(
-            "ocat.commands.web", LogLevel[config.logging.level], config
-        )
-        
-        # Initialize web search components
-        self.search_engine = SearchEngine(config)
-        self.content_scraper = ContentScraper(config)
-        self.content_processor = ContentProcessor(config)
         
     async def execute(self, args: List[str], context: Any) -> CommandResult:
         """
@@ -54,40 +35,50 @@ class WebSearchCommand(Command):
             Command execution result
         """
         try:
+            # Get config from context
+            config = context.config
+            
             # Check if web search is enabled
-            if not self.config.web_search.enabled:
+            if not config.web_search.enabled:
                 return CommandResult.error("Web search is disabled")
+                
+            # Initialize components
+            logger = setup_logger(
+                "ocat.commands.web", LogLevel[config.logging.level], config
+            )
+            search_engine = SearchEngine(config)
+            content_scraper = ContentScraper(config)
+            content_processor = ContentProcessor(config)
                 
             # Parse arguments
             if not args:
                 return CommandResult.error("Usage: /web \"search query\" [search_engine]")
                 
             query = args[0]
-            search_engine = args[1] if len(args) > 1 else None
+            engine = args[1] if len(args) > 1 else None
             
             if not query.strip():
                 return CommandResult.error("Search query cannot be empty")
                 
-            self.logger.info(f"Executing web search for: '{query}'")
+            logger.info(f"Executing web search for: '{query}'")
             
             # Step 1: Perform search
-            search_results = await self.search_engine.search(query, search_engine)
+            search_results = await search_engine.search(query, engine)
             
             if not search_results:
-                return CommandResult.success(
-                    f"No search results found for '{query}'",
-                    data={"search_results": None}
+                return CommandResult.ok(
+                    f"No search results found for '{query}'"
                 )
                 
             # Step 2: Extract URLs for scraping
             urls = [result.url for result in search_results]
-            self.logger.info(f"Found {len(urls)} search results, scraping content...")
+            logger.info(f"Found {len(urls)} search results, scraping content...")
             
             # Step 3: Scrape content from URLs
-            page_contents = await self.content_scraper.scrape_urls(urls)
+            page_contents = await content_scraper.scrape_urls(urls)
             
             # Step 4: Process and format content
-            processed_content = self.content_processor.process_content(query, page_contents)
+            processed_content = content_processor.process_content(query, page_contents)
             
             # Step 5: Prepare result
             if processed_content.results:
@@ -106,7 +97,7 @@ class WebSearchCommand(Command):
                 success_msg = (f"Found {len(processed_content.results)} results for '{query}'. "
                              f"Content added to conversation context.")
                 
-                return CommandResult.success(
+                return CommandResult.ok(
                     success_msg,
                     data={
                         "search_results": processed_content.results,
@@ -114,11 +105,18 @@ class WebSearchCommand(Command):
                     }
                 )
             else:
-                return CommandResult.success(
-                    f"Search completed but no relevant content found for '{query}'",
-                    data={"search_results": None}
+                return CommandResult.ok(
+                    f"Search completed but no relevant content found for '{query}'"
                 )
                 
         except Exception as e:
-            self.logger.error(f"Web search command failed: {e}")
+            # Create a fallback logger if initialization failed
+            try:
+                config = context.config
+                logger = setup_logger(
+                    "ocat.commands.web", LogLevel[config.logging.level], config
+                )
+                logger.error(f"Web search command failed: {e}")
+            except:
+                pass  # Ignore logging errors in error handler
             return CommandResult.error(f"Web search failed: {e}")

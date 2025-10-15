@@ -65,6 +65,7 @@ class HelpRegistry:
 
 ## 📚 **Help Sections**
 - `/help commands` - All slash commands
+- `/help websearch` - Web search functionality
 - `/help speak` - Text-to-speech functionality
 - `/help productivity` - Tasks, lists, and memory management
 - `/help files` - File operations and location aliases
@@ -75,6 +76,7 @@ class HelpRegistry:
 ## 🚀 **Quick Examples**
 ```
 /st                    # Show open tasks
+/web "latest AI news"  # Search web and analyze results
 /speak                 # Speak last response
 /file read config.yaml # Read a file
 /locations             # Show location aliases
@@ -136,6 +138,9 @@ class HelpRegistry:
 ## 🔊 **Text-to-Speech**
 - `/speak [voice] [model]` (alias: `/s`) - Speak last response
 - `/speaklike "instructions" [voice] [model]` (alias: `/sl`) - Speak with custom instructions
+
+## 🌐 **Web Search**
+- `/web "search query" [engine]` - Search the web and add results to context
 
 ## 💭 **Memory & Productivity**
 - `/remember <type> <text>` - Store information
@@ -851,6 +856,70 @@ Common errors and solutions:
             aliases=["speak", "tts", "speech", "audio", "voice"],
         )
         self.register_section("tts", tts)
+
+        # Web Search section
+        web_search = HelpSection(
+            title="Web Search Guide",
+            content="""# 🌐 **Web Search**
+
+Search the web and integrate results directly into your conversation context.
+
+## 📝 **Basic Usage**
+```bash
+/web "search query"                 # Search using default engine
+/web "search query" duckduckgo      # Specify search engine
+/web "latest AI news" google        # Use Google search
+/web "python asyncio" bing          # Use Bing search
+```
+
+## 🔧 **Available Search Engines**
+- **duckduckgo** (default) - Privacy-focused search
+- **google** - Google search (may be rate-limited)
+- **bing** - Microsoft Bing search
+
+## 📊 **How It Works**
+1. **Search**: Performs web search with your query
+2. **Filter**: Only retrieves HTML content (skips PDFs, images, videos)
+3. **Extract**: Uses intelligent content extraction focusing on main content
+4. **Process**: Cleans and truncates content to configurable word limit (default: 500 words)
+5. **Integrate**: Automatically adds search results to conversation context
+
+## ⚙️ **Configuration**
+Configure web search in `ocat.yaml`:
+```yaml
+web_search:
+  enabled: true                    # Enable/disable web search
+  default_engine: "duckduckgo"     # Default search engine
+  content_threshold: 500           # Max words per page
+  max_results: 3                   # Max search results to process
+  timeout: 10                      # Request timeout in seconds
+```
+
+## 💡 **Examples**
+```bash
+# Research and ask questions
+/web "what is quantum computing"
+# AI will search and then respond with information from web results
+
+# Get latest news
+/web "technology news 2025" 
+# AI will provide summary based on current web results
+
+# Technical help
+/web "python best practices 2025"
+# AI will incorporate latest web information into advice
+```
+
+## 🚀 **Tips**
+- Web search results are automatically integrated - just ask your follow-up questions
+- Results are processed and summarized by the AI
+- Content is filtered and cleaned for better readability
+- Use specific queries for better results
+- The AI will tell you if no relevant content was found
+""",
+            aliases=["search", "web", "internet"],
+        )
+        self.register_section("websearch", web_search)
 
     def _generate_overview(self) -> str:
         """Generate the main help overview."""
