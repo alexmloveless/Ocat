@@ -59,60 +59,26 @@ class FileIntegration:
             re.compile(pattern, re.IGNORECASE) for pattern in self.file_patterns
         ]
 
-    def detect_file_intent(self, message: str) -> bool:
+    def detect_file_intent(self, message: str, routing_marker: str = "@") -> bool:
         """
-        Detect if a message contains file operation intent.
+        Detect if a message should be routed to file operations.
+        Now uses explicit marker-based routing instead of keyword detection.
 
         Parameters
         ----------
         message : str
             User message to analyze
+        routing_marker : str
+            The marker symbol that must prefix file operation messages
 
         Returns
         -------
         bool
-            True if file operation intent detected
+            True if file operation intent detected (starts with routing marker)
         """
-        # Check for file extension patterns
-        if re.search(r"\b[a-zA-Z0-9_.-]+\.[a-zA-Z0-9]+\b", message):
-            # Has file extension, check for operation words
-            file_keywords = [
-                "read",
-                "show",
-                "display",
-                "open",
-                "cat",
-                "view",
-                "write",
-                "save",
-                "create",
-                "edit",
-                "list",
-                "ls",
-                "contents",
-                "directory",
-                "search",
-                "find",
-                "look for",
-                "tree",
-                "structure",
-                "hierarchy",
-            ]
-
-            message_lower = message.lower()
-            if any(keyword in message_lower for keyword in file_keywords):
-                return True
-
-        # Check for location alias patterns (alias:path)
-        if re.search(r"\b[a-zA-Z0-9_.-]+:[^\s]+", message):
-            return True
-
-        # Check against compiled patterns
-        for pattern in self.compiled_patterns:
-            if pattern.search(message):
-                return True
-
-        return False
+        # Check if the input starts with the routing marker
+        stripped_input = message.strip()
+        return stripped_input.startswith(routing_marker)
 
     async def handle_file_request(self, message: str) -> Optional[str]:
         """

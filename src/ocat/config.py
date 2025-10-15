@@ -227,6 +227,22 @@ class ProductivityConfig(BaseModel):
     )
 
 
+class FileToolsConfig(BaseModel):
+    """
+    File tools configuration.
+
+    Attributes
+    ----------
+    routing_marker : str
+        Symbol that must prefix messages to route them to file tools system
+    """
+
+    routing_marker: str = Field(
+        default="@",
+        description="Symbol that must prefix messages to route them to file tools system",
+    )
+
+
 class LoggingConfig(BaseModel):
     """
     Logging configuration.
@@ -295,6 +311,59 @@ class TTSConfig(BaseModel):
         return v
 
 
+class WebSearchConfig(BaseModel):
+    """
+    Web search configuration.
+
+    Attributes
+    ----------
+    enabled : bool
+        Enable web search functionality
+    default_engine : str
+        Default search engine to use
+    content_threshold : int
+        Maximum words per page content
+    max_results : int
+        Maximum search results to process
+    timeout : int
+        Request timeout in seconds
+    engines : Dict[str, str]
+        Available search engines and their URL patterns
+    """
+
+    enabled: bool = Field(default=True, description="Enable web search functionality")
+    default_engine: str = Field(default="duckduckgo", description="Default search engine")
+    content_threshold: int = Field(default=500, gt=0, description="Maximum words per page")
+    max_results: int = Field(default=3, gt=0, le=10, description="Maximum search results")
+    timeout: int = Field(default=10, gt=0, description="Request timeout in seconds")
+    engines: Dict[str, str] = Field(
+        default_factory=lambda: {
+            "google": "https://www.google.com/search?q={query}",
+            "bing": "https://www.bing.com/search?q={query}",
+            "duckduckgo": "https://duckduckgo.com/html/?q={query}",
+        },
+        description="Available search engines and URL patterns"
+    )
+
+    @field_validator("default_engine")
+    def validate_default_engine(cls, v, info):
+        """Validate default engine is available in engines dict."""
+        # Note: We can't validate against engines dict here as it may not be set yet
+        # This validation happens at the model level after all fields are set
+        return v
+
+    @model_validator(mode="after")
+    def validate_default_engine_exists(self):
+        """Ensure default engine exists in engines dict."""
+        if self.default_engine not in self.engines:
+            available = list(self.engines.keys())
+            raise ValueError(
+                f"Default engine '{self.default_engine}' not found in engines. "
+                f"Available engines: {available}"
+            )
+        return self
+
+
 class Config(BaseModel):
     """
     Main configuration class for Ocat application.
@@ -313,10 +382,14 @@ class Config(BaseModel):
         Display and UI configuration
     productivity : ProductivityConfig
         Productivity system configuration
+    file_tools : FileToolsConfig
+        File tools system configuration
     logging : LoggingConfig
         Logging configuration
     tts : TTSConfig
         Text-to-Speech configuration
+    web_search : WebSearchConfig
+        Web search configuration
     locations : Dict[str, str]
         Location aliases for commands
     """
@@ -327,8 +400,10 @@ class Config(BaseModel):
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     display: DisplayConfig = Field(default_factory=DisplayConfig)
     productivity: ProductivityConfig = Field(default_factory=ProductivityConfig)
+    file_tools: FileToolsConfig = Field(default_factory=FileToolsConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     tts: TTSConfig = Field(default_factory=TTSConfig)
+    web_search: WebSearchConfig = Field(default_factory=WebSearchConfig)
     locations: Dict[str, str] = Field(
         default_factory=dict, description="Location aliases"
     )

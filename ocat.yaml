@@ -47,11 +47,27 @@ productivity:
   proactive_memory_suggestions: false   # Suggest storing personal facts (e.g., 'I like X') as memories
   routing_marker: "%"                   # Symbol that must prefix messages to route them to productivity system
 
+# File Tools Configuration  
+file_tools:
+  routing_marker: "@"                   # Symbol that must prefix messages to route them to file tools system
+
 # Logging Configuration
 logging:
   level: "WARN"                      # Logging level (DEBUG, INFO, WARN, ERROR)
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"  # Log format
   show_context: false                # Show context information in INFO logging
+
+# Web Search Configuration
+web_search:
+  enabled: true                         # Enable web search functionality
+  default_engine: "duckduckgo"          # Default search engine
+  content_threshold: 500                # Maximum words per page
+  max_results: 3                        # Maximum search results to process
+  timeout: 10                           # Request timeout in seconds
+  engines:
+    google: "https://www.google.com/search?q={query}"
+    bing: "https://www.bing.com/search?q={query}"
+    duckduckgo: "https://duckduckgo.com/html/?q={query}"
 
 # Location aliases for commands
 # Define shortcuts for commonly used directories

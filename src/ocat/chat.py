@@ -228,6 +228,49 @@ class ChatSession:
                 elif result.message:
                     self.console.print(f"✅ {result.message}", style="green")
 
+                # Check if this was a web search command with results
+                if (result.success and result.data and 
+                    result.data.get("formatted_content") and 
+                    hasattr(self, 'web_search_results')):
+                    
+                    # Continue to LLM processing with search context
+                    search_context = getattr(self, 'web_search_results', [])
+                    if search_context:
+                        # Add user message to conversation for context
+                        user_message = Message(role="user", content=user_input)
+                        self.messages.append(user_message)
+                        
+                        # Generate enhanced response with search context
+                        try:
+                            enhanced_response = await self._generate_response_with_search_context(
+                                user_input, search_context[-1]  # Use most recent search results
+                            )
+                            
+                            # Add assistant response and display
+                            assistant_message = Message(role="assistant", content=enhanced_response)
+                            self.messages.append(assistant_message)
+                            self._display_message(assistant_message)
+                            
+                            # Store in vector store
+                            if self.vector_store:
+                                try:
+                                    exchange_id = self.vector_store.add_exchange(
+                                        user_prompt=user_input,
+                                        assistant_response=enhanced_response,
+                                        thread_id=self.thread_id,
+                                        session_id=self.session_id,
+                                    )
+                                    self.logger.debug(f"Stored web search exchange {exchange_id} in vector store")
+                                except VectorStoreError as e:
+                                    self.logger.warning(f"Failed to store web search exchange: {e}")
+                            
+                            # Clear search results
+                            self.web_search_results = []
+                            
+                        except Exception as e:
+                            self.logger.error(f"Error processing web search response: {e}")
+                            self.console.print(f"❌ Error processing search results: {e}", style="red")
+                
                 return
             except Exception as e:
                 self.logger.error(f"Unexpected error processing command: {e}")
@@ -259,19 +302,25 @@ class ChatSession:
                 # Continue with normal processing
 
         # Check if this is a productivity request
+        routing_marker = self.config.productivity.routing_marker
         if (
             self.productivity_integration
-            and self.productivity_integration.should_use_productivity_agent(user_input)
+            and self.productivity_integration.should_use_productivity_agent(user_input, routing_marker)
         ):
             try:
                 self.logger.debug(
                     f"Routing to productivity agent: {user_input[:50]}..."
                 )
 
+                # Strip the routing marker from the input before processing
+                productivity_input = user_input.strip()
+                if productivity_input.startswith(routing_marker):
+                    productivity_input = productivity_input[len(routing_marker):].strip()
+
                 # Process with productivity agent
                 productivity_response = (
                     await self.productivity_integration.process_productivity_request(
-                        user_input, self
+                        productivity_input, self
                     )
                 )
 
@@ -311,18 +360,24 @@ class ChatSession:
                 # Fall through to regular processing
 
         # Check for file operation intent
+        file_routing_marker = self.config.file_tools.routing_marker
         if self.file_integration and self.file_integration.detect_file_intent(
-            user_input
+            user_input, file_routing_marker
         ):
             try:
                 self.logger.debug(f"Routing to file agent: {user_input[:50]}...")
+
+                # Strip the routing marker from the input before processing
+                file_input = user_input.strip()
+                if file_input.startswith(file_routing_marker):
+                    file_input = file_input[len(file_routing_marker):].strip()
 
                 # Update current directory in file integration
                 self.file_integration.update_current_directory(self.current_directory)
 
                 # Process with file agent
                 file_response = await self.file_integration.handle_file_request(
-                    user_input
+                    file_input
                 )
 
                 if file_response:
@@ -513,6 +568,54 @@ class ChatSession:
 
         self.logger.debug(f"Received response with {len(response)} characters")
         return response
+
+    async def _generate_response_with_search_context(self, original_query: str, search_context: str) -> str:
+        """
+        Generate a response with web search results as context.
+        
+        Parameters
+        ----------
+        original_query : str
+            Original user query/command
+        search_context : str
+            Formatted search results context
+            
+        Returns
+        -------
+        str
+            Generated response incorporating search results
+        """
+        # Create enhanced system prompt
+        search_instruction = """
+
+You have been provided with web search results to help answer the user's query. Please analyze the search results and provide a comprehensive response based on the available information. If the search results don't contain relevant information for the query, please state that clearly.
+
+Web Search Results:
+"""
+        
+        # Create a temporary message with the search context
+        enhanced_content = original_query + search_instruction + search_context
+        
+        # Replace the last user message with the enhanced version
+        if self.messages and self.messages[-1].role == "user":
+            original_message = self.messages[-1]
+            self.messages[-1] = Message(role="user", content=enhanced_content)
+            
+            try:
+                # Generate response with enhanced context
+                response = await self._generate_response()
+                
+                # Restore original message for conversation history
+                self.messages[-1] = original_message
+                
+                return response
+            except Exception as e:
+                # Restore original message on error
+                self.messages[-1] = original_message
+                raise e
+        else:
+            # Fallback to regular generation if no user message found
+            return await self._generate_response()
 
     def _display_message(self, message: Message) -> None:
         """
