@@ -229,28 +229,38 @@ class ChatSession:
                     self.console.print(f"✅ {result.message}", style="green")
 
                 # Check if this was a web search command with results
-                if (result.success and result.data and 
-                    result.data.get("formatted_content") and 
-                    hasattr(self, 'web_search_results')):
-                    
+                if (
+                    result.success
+                    and result.data
+                    and result.data.get("formatted_content")
+                    and hasattr(self, "web_search_results")
+                ):
+
                     # Continue to LLM processing with search context
-                    search_context = getattr(self, 'web_search_results', [])
+                    search_context = getattr(self, "web_search_results", [])
                     if search_context:
                         # Add user message to conversation for context
                         user_message = Message(role="user", content=user_input)
                         self.messages.append(user_message)
-                        
+
                         # Generate enhanced response with search context
                         try:
-                            enhanced_response = await self._generate_response_with_search_context(
-                                user_input, search_context[-1]  # Use most recent search results
+                            enhanced_response = (
+                                await self._generate_response_with_search_context(
+                                    user_input,
+                                    search_context[
+                                        -1
+                                    ],  # Use most recent search results
+                                )
                             )
-                            
+
                             # Add assistant response and display
-                            assistant_message = Message(role="assistant", content=enhanced_response)
+                            assistant_message = Message(
+                                role="assistant", content=enhanced_response
+                            )
                             self.messages.append(assistant_message)
                             self._display_message(assistant_message)
-                            
+
                             # Store in vector store
                             if self.vector_store:
                                 try:
@@ -260,17 +270,25 @@ class ChatSession:
                                         thread_id=self.thread_id,
                                         session_id=self.session_id,
                                     )
-                                    self.logger.debug(f"Stored web search exchange {exchange_id} in vector store")
+                                    self.logger.debug(
+                                        f"Stored web search exchange {exchange_id} in vector store"
+                                    )
                                 except VectorStoreError as e:
-                                    self.logger.warning(f"Failed to store web search exchange: {e}")
-                            
+                                    self.logger.warning(
+                                        f"Failed to store web search exchange: {e}"
+                                    )
+
                             # Clear search results
                             self.web_search_results = []
-                            
+
                         except Exception as e:
-                            self.logger.error(f"Error processing web search response: {e}")
-                            self.console.print(f"❌ Error processing search results: {e}", style="red")
-                
+                            self.logger.error(
+                                f"Error processing web search response: {e}"
+                            )
+                            self.console.print(
+                                f"❌ Error processing search results: {e}", style="red"
+                            )
+
                 return
             except Exception as e:
                 self.logger.error(f"Unexpected error processing command: {e}")
@@ -305,7 +323,9 @@ class ChatSession:
         routing_marker = self.config.productivity.routing_marker
         if (
             self.productivity_integration
-            and self.productivity_integration.should_use_productivity_agent(user_input, routing_marker)
+            and self.productivity_integration.should_use_productivity_agent(
+                user_input, routing_marker
+            )
         ):
             try:
                 self.logger.debug(
@@ -315,7 +335,9 @@ class ChatSession:
                 # Strip the routing marker from the input before processing
                 productivity_input = user_input.strip()
                 if productivity_input.startswith(routing_marker):
-                    productivity_input = productivity_input[len(routing_marker):].strip()
+                    productivity_input = productivity_input[
+                        len(routing_marker) :
+                    ].strip()
 
                 # Process with productivity agent
                 productivity_response = (
@@ -370,7 +392,7 @@ class ChatSession:
                 # Strip the routing marker from the input before processing
                 file_input = user_input.strip()
                 if file_input.startswith(file_routing_marker):
-                    file_input = file_input[len(file_routing_marker):].strip()
+                    file_input = file_input[len(file_routing_marker) :].strip()
 
                 # Update current directory in file integration
                 self.file_integration.update_current_directory(self.current_directory)
@@ -459,6 +481,10 @@ class ChatSession:
         """
         Generate a response from the LLM using the configured backend.
 
+        The system automatically excludes command-based exchanges (starting with /, %, @)
+        and productivity content from the context search query to focus on conversational
+        exchanges for better similarity matching.
+
         Returns
         -------
         str
@@ -474,16 +500,45 @@ class ChatSession:
         search_window = self.config.vector_store.search_context_window
         recent_exchanges = []
 
-        # Get the last n complete exchanges (user + assistant pairs)
+        # Filter out command-based and productivity messages for context search
+        def is_excluded_message(msg):
+            """Check if message should be excluded from context search."""
+            if msg.role != "user":
+                return False
+            content = msg.content.strip()
+            # Exclude commands starting with /, %, @
+            if content.startswith(("/", "%", "@")):
+                return True
+            return False
+
+        # Get messages excluding commands and productivity content
         messages_for_search = [
-            msg for msg in self.messages if msg.role in ["user", "assistant"]
+            msg
+            for msg in self.messages
+            if msg.role in ["user", "assistant"] and not is_excluded_message(msg)
         ]
-        if len(messages_for_search) >= 2:
-            # Take the last search_context_window * 2 messages to get complete exchanges
-            recent_exchanges = messages_for_search[-(search_window * 2) :]
-        elif messages_for_search:
-            # If we have fewer messages, take what we have
-            recent_exchanges = messages_for_search
+
+        # Build complete exchanges (user + assistant pairs) from filtered messages
+        complete_exchanges = []
+        i = 0
+        while i < len(messages_for_search) - 1:
+            if (
+                messages_for_search[i].role == "user"
+                and messages_for_search[i + 1].role == "assistant"
+            ):
+                complete_exchanges.extend(
+                    [messages_for_search[i], messages_for_search[i + 1]]
+                )
+                i += 2
+            else:
+                i += 1
+
+        # Take the most recent exchanges up to search_window limit
+        if len(complete_exchanges) >= 2:
+            max_messages = search_window * 2  # Each exchange = user + assistant
+            recent_exchanges = complete_exchanges[-max_messages:]
+        else:
+            recent_exchanges = complete_exchanges
 
         # Create enhanced query text including conversation flow
         if recent_exchanges:
@@ -505,7 +560,7 @@ class ChatSession:
             query_text = ""
 
         self.logger.debug(
-            f"Context search query includes {len(recent_exchanges)} recent messages"
+            f"Context search query includes {len(recent_exchanges)} recent messages (commands/productivity excluded)"
         )
 
         # Retrieve similar exchanges and memories for context if vector store is enabled
@@ -569,17 +624,19 @@ class ChatSession:
         self.logger.debug(f"Received response with {len(response)} characters")
         return response
 
-    async def _generate_response_with_search_context(self, original_query: str, search_context: str) -> str:
+    async def _generate_response_with_search_context(
+        self, original_query: str, search_context: str
+    ) -> str:
         """
         Generate a response with web search results as context.
-        
+
         Parameters
         ----------
         original_query : str
             Original user query/command
         search_context : str
             Formatted search results context
-            
+
         Returns
         -------
         str
@@ -592,22 +649,22 @@ You have been provided with web search results to help answer the user's query. 
 
 Web Search Results:
 """
-        
+
         # Create a temporary message with the search context
         enhanced_content = original_query + search_instruction + search_context
-        
+
         # Replace the last user message with the enhanced version
         if self.messages and self.messages[-1].role == "user":
             original_message = self.messages[-1]
             self.messages[-1] = Message(role="user", content=enhanced_content)
-            
+
             try:
                 # Generate response with enhanced context
                 response = await self._generate_response()
-                
+
                 # Restore original message for conversation history
                 self.messages[-1] = original_message
-                
+
                 return response
             except Exception as e:
                 # Restore original message on error
