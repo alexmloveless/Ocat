@@ -60,6 +60,10 @@ class Exchange:
         Unix timestamp when exchange was created
     prior_exchange_ids : List[str]
         IDs of exchanges that provided context for this one
+    thread_session_id : str
+        Composite ID of thread_id + '_' + session_id
+    thread_continuation_seq : int
+        Sequence number for thread continuations (0 for original, increments per continuation)
     """
 
     exchange_id: str
@@ -69,6 +73,8 @@ class Exchange:
     assistant_response: str
     timestamp: float
     prior_exchange_ids: List[str]
+    thread_session_id: str = ""
+    thread_continuation_seq: int = 0
 
 
 class ConversationVectorStore:
@@ -149,6 +155,7 @@ class ConversationVectorStore:
         thread_id: str,
         session_id: str,
         prior_exchange_ids: Optional[List[str]] = None,
+        thread_continuation_seq: int = 0,
     ) -> str:
         """
         Add a new conversation exchange to the ChromaDB vector store.
@@ -165,6 +172,8 @@ class ConversationVectorStore:
             Session ID for the current chat session
         prior_exchange_ids : Optional[List[str]]
             IDs of exchanges that provided context for this one
+        thread_continuation_seq : int, default=0
+            Sequence number for thread continuations
 
         Returns
         -------
@@ -180,6 +189,9 @@ class ConversationVectorStore:
             # Generate unique exchange ID
             exchange_id = str(uuid.uuid4())
 
+            # Generate thread_session_id
+            thread_session_id = f"{thread_id}_{session_id}"
+
             # Create exchange object
             exchange = Exchange(
                 exchange_id=exchange_id,
@@ -189,6 +201,8 @@ class ConversationVectorStore:
                 assistant_response=assistant_response,
                 timestamp=time.time(),
                 prior_exchange_ids=prior_exchange_ids or [],
+                thread_session_id=thread_session_id,
+                thread_continuation_seq=thread_continuation_seq,
             )
 
             # Generate combined text for ChromaDB

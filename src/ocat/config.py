@@ -332,9 +332,15 @@ class WebSearchConfig(BaseModel):
     """
 
     enabled: bool = Field(default=True, description="Enable web search functionality")
-    default_engine: str = Field(default="duckduckgo", description="Default search engine")
-    content_threshold: int = Field(default=500, gt=0, description="Maximum words per page")
-    max_results: int = Field(default=3, gt=0, le=10, description="Maximum search results")
+    default_engine: str = Field(
+        default="duckduckgo", description="Default search engine"
+    )
+    content_threshold: int = Field(
+        default=500, gt=0, description="Maximum words per page"
+    )
+    max_results: int = Field(
+        default=3, gt=0, le=10, description="Maximum search results"
+    )
     timeout: int = Field(default=10, gt=0, description="Request timeout in seconds")
     engines: Dict[str, str] = Field(
         default_factory=lambda: {
@@ -342,7 +348,7 @@ class WebSearchConfig(BaseModel):
             "bing": "https://www.bing.com/search?q={query}",
             "duckduckgo": "https://duckduckgo.com/html/?q={query}",
         },
-        description="Available search engines and URL patterns"
+        description="Available search engines and URL patterns",
     )
 
     @field_validator("default_engine")

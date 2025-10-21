@@ -1030,7 +1030,7 @@ class AddTaskDirectCommand(BaseCommand):
 @command(
     name="ct",
     description="Complete a task directly without LLM - /ct <task_id>",
-    usage='/ct <task_id>',
+    usage="/ct <task_id>",
     aliases=["complete-task"],
 )
 class CompleteTaskDirectCommand(BaseCommand):
@@ -1064,9 +1064,7 @@ class CompleteTaskDirectCommand(BaseCommand):
 
             # Parse arguments: task_id
             if len(args) != 1:
-                return CommandResult.error(
-                    'Usage: /ct <task_id>. Example: /ct T123'
-                )
+                return CommandResult.error("Usage: /ct <task_id>. Example: /ct T123")
 
             task_id = args[0]
 
@@ -1076,7 +1074,9 @@ class CompleteTaskDirectCommand(BaseCommand):
                 return CommandResult.error(f"No entity found with ID '{task_id}'")
 
             if not isinstance(entity, Task):
-                return CommandResult.error(f"{task_id} is not a task. Only tasks can be completed.")
+                return CommandResult.error(
+                    f"{task_id} is not a task. Only tasks can be completed."
+                )
 
             # Check if already completed
             if entity.status == EntityStatus.COMPLETED:
@@ -1088,14 +1088,17 @@ class CompleteTaskDirectCommand(BaseCommand):
             )
 
             if not success:
-                return CommandResult.error(f"Failed to complete task {task_id}. Please try again.")
+                return CommandResult.error(
+                    f"Failed to complete task {task_id}. Please try again."
+                )
 
             # Show success message
             context.console.print(
                 f"✅ Completed task {task_id}: {entity.content}", style="green"
             )
             context.console.print(
-                f"   Category: {entity.category}, Priority: {entity.priority.title() if entity.priority else 'None'}", style="dim"
+                f"   Category: {entity.category}, Priority: {entity.priority.title() if entity.priority else 'None'}",
+                style="dim",
             )
 
             return CommandResult.ok(f"Completed task {task_id}")

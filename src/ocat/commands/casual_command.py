@@ -34,8 +34,8 @@ class CasualCommand(BaseCommand):
                 # Get the path to the casual mode prompt file
                 current_dir = Path(__file__).parent.parent
                 prompt_file = current_dir / "prompts" / "casual_mode_prompt.md"
-                
-                with open(prompt_file, 'r', encoding='utf-8') as f:
+
+                with open(prompt_file, "r", encoding="utf-8") as f:
                     self._casual_prompt_content = f.read()
             except FileNotFoundError:
                 raise CommandError(
@@ -43,7 +43,7 @@ class CasualCommand(BaseCommand):
                 )
             except Exception as e:
                 raise CommandError(f"Failed to load casual mode prompt: {e}")
-        
+
         return self._casual_prompt_content
 
     async def execute(self, args: List[str], context: Any) -> CommandResult:
@@ -64,15 +64,15 @@ class CasualCommand(BaseCommand):
         """
         try:
             # Check if casual mode is currently enabled
-            current_casual_mode = getattr(context, '_casual_mode', False)
-            
+            current_casual_mode = getattr(context, "_casual_mode", False)
+
             # Determine new state
             if not args:
                 # Toggle mode
                 new_state = not current_casual_mode
-            elif args[0].lower() in ['on', 'enable', 'true', '1']:
+            elif args[0].lower() in ["on", "enable", "true", "1"]:
                 new_state = True
-            elif args[0].lower() in ['off', 'disable', 'false', '0']:
+            elif args[0].lower() in ["off", "disable", "false", "0"]:
                 new_state = False
             else:
                 return CommandResult.error(
@@ -88,14 +88,14 @@ class CasualCommand(BaseCommand):
                     casual_prompt = self._load_casual_prompt()
                     casual_message = Message(role="system", content=casual_prompt)
                     context.messages.append(casual_message)
-                    
+
                 return CommandResult.ok(
                     "🎉 Casual mode enabled! Ready for some laid-back chatting."
                 )
             else:
                 # Disable casual mode - remove casual prompt from system messages
                 self._remove_casual_prompt(context)
-                
+
                 return CommandResult.ok(
                     "🤖 Casual mode disabled. Back to regular assistant mode."
                 )
@@ -113,6 +113,7 @@ class CasualCommand(BaseCommand):
     def _remove_casual_prompt(self, context: Any) -> None:
         """Remove casual mode prompt from system messages."""
         context.messages = [
-            msg for msg in context.messages
+            msg
+            for msg in context.messages
             if not (msg.role == "system" and "CASUAL MODE ENABLED" in msg.content)
         ]

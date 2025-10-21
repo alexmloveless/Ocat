@@ -18,6 +18,7 @@ from ..exceptions import ConfigError
 
 class TTSError(Exception):
     """Exception raised for TTS-related errors."""
+
     pass
 
 
@@ -65,7 +66,7 @@ class SpeakCommand(BaseCommand):
                 return CommandResult.error(
                     f"Invalid voice '{voice}'. Valid voices: alloy, echo, fable, nova, onyx, shimmer"
                 )
-            
+
             if not self._validate_model(model):
                 return CommandResult.error(
                     f"Invalid model '{model}'. Valid models: tts-1, tts-1-hd"
@@ -73,13 +74,12 @@ class SpeakCommand(BaseCommand):
 
             # Generate and play TTS
             await self._generate_and_play_tts(
-                text=last_response,
-                voice=voice,
-                model=model,
-                context=context
+                text=last_response, voice=voice, model=model, context=context
             )
 
-            return CommandResult.ok(f"Spoke last response using voice '{voice}' and model '{model}'")
+            return CommandResult.ok(
+                f"Spoke last response using voice '{voice}' and model '{model}'"
+            )
 
         except TTSError as e:
             return CommandResult.error(f"TTS error: {e}")
@@ -90,7 +90,7 @@ class SpeakCommand(BaseCommand):
 @command(
     name="speaklike",
     description="Convert the last assistant response to speech with custom instructions",
-    usage="/speaklike \"instructions\" [voice] [model]",
+    usage='/speaklike "instructions" [voice] [model]',
     aliases=["sl"],
 )
 class SpeakLikeCommand(BaseCommand):
@@ -119,7 +119,9 @@ class SpeakLikeCommand(BaseCommand):
 
             # Validate arguments
             if len(args) < 1:
-                return CommandResult.error("Instructions are required. Usage: /speaklike \"instructions\" [voice] [model]")
+                return CommandResult.error(
+                    'Instructions are required. Usage: /speaklike "instructions" [voice] [model]'
+                )
 
             # Get the last assistant response
             last_response = self._get_last_assistant_response(context)
@@ -136,7 +138,7 @@ class SpeakLikeCommand(BaseCommand):
                 return CommandResult.error(
                     f"Invalid voice '{voice}'. Valid voices: alloy, echo, fable, nova, onyx, shimmer"
                 )
-            
+
             if not self._validate_model(model):
                 return CommandResult.error(
                     f"Invalid model '{model}'. Valid models: tts-1, tts-1-hd"
@@ -147,10 +149,7 @@ class SpeakLikeCommand(BaseCommand):
 
             # Generate and play TTS
             await self._generate_and_play_tts(
-                text=enhanced_text,
-                voice=voice,
-                model=model,
-                context=context
+                text=enhanced_text, voice=voice, model=model, context=context
             )
 
             return CommandResult.ok(
@@ -219,7 +218,9 @@ class SpeakLikeCommand(BaseCommand):
             try:
                 from openai import AsyncOpenAI
             except ImportError:
-                raise TTSError("OpenAI library not installed. Install with: pip install openai")
+                raise TTSError(
+                    "OpenAI library not installed. Install with: pip install openai"
+                )
 
             # Get OpenAI API key
             api_key = os.getenv("OPENAI_API_KEY")
@@ -235,21 +236,22 @@ class SpeakLikeCommand(BaseCommand):
                 raise TTSError("No readable text found after cleaning")
 
             # Show progress
-            context.console.print(f"🔊 Generating speech using {voice} voice...", style="cyan")
+            context.console.print(
+                f"🔊 Generating speech using {voice} voice...", style="cyan"
+            )
 
             # Generate TTS audio
             response = await client.audio.speech.create(
-                model=model,
-                voice=voice,
-                input=clean_text
+                model=model, voice=voice, input=clean_text
             )
 
             # Determine output file path
             audio_dir = Path(context.config.tts.audio_dir)
             audio_dir.mkdir(parents=True, exist_ok=True)
-            
+
             # Create unique filename
             import time
+
             timestamp = int(time.time())
             output_file = audio_dir / f"ocat_tts_{timestamp}.mp3"
 
@@ -281,31 +283,31 @@ class SpeakLikeCommand(BaseCommand):
         import re
 
         # Remove markdown code blocks
-        text = re.sub(r'```[^`]*```', '[code block]', text, flags=re.DOTALL)
-        
+        text = re.sub(r"```[^`]*```", "[code block]", text, flags=re.DOTALL)
+
         # Remove inline code
-        text = re.sub(r'`([^`]+)`', r'\1', text)
-        
+        text = re.sub(r"`([^`]+)`", r"\1", text)
+
         # Remove markdown links but keep the text
-        text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
-        
+        text = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", text)
+
         # Remove bold/italic markdown
-        text = re.sub(r'\*\*([^\*]+)\*\*', r'\1', text)
-        text = re.sub(r'\*([^\*]+)\*', r'\1', text)
-        text = re.sub(r'__([^_]+)__', r'\1', text)
-        text = re.sub(r'_([^_]+)_', r'\1', text)
-        
+        text = re.sub(r"\*\*([^\*]+)\*\*", r"\1", text)
+        text = re.sub(r"\*([^\*]+)\*", r"\1", text)
+        text = re.sub(r"__([^_]+)__", r"\1", text)
+        text = re.sub(r"_([^_]+)_", r"\1", text)
+
         # Remove headers
-        text = re.sub(r'^#+\s*(.+)$', r'\1', text, flags=re.MULTILINE)
-        
+        text = re.sub(r"^#+\s*(.+)$", r"\1", text, flags=re.MULTILINE)
+
         # Remove list markers
-        text = re.sub(r'^\s*[-*+]\s+', '', text, flags=re.MULTILINE)
-        text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
-        
+        text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
+        text = re.sub(r"^\s*\d+\.\s+", "", text, flags=re.MULTILINE)
+
         # Remove extra whitespace and normalize
-        text = re.sub(r'\n\s*\n', '\n\n', text)
-        text = re.sub(r'[ \t]+', ' ', text)
-        
+        text = re.sub(r"\n\s*\n", "\n\n", text)
+        text = re.sub(r"[ \t]+", " ", text)
+
         return text.strip()
 
     async def _play_audio(self, audio_file: Path, context: Any) -> None:
@@ -328,35 +330,47 @@ class SpeakLikeCommand(BaseCommand):
             context.console.print(f"🎧 Playing audio...", style="yellow")
 
             # Determine the appropriate audio player for the system
-            if os.name == 'nt':  # Windows
-                player_cmd = ['start', str(audio_file)]
+            if os.name == "nt":  # Windows
+                player_cmd = ["start", str(audio_file)]
                 use_shell = True
-            elif os.uname().sysname == 'Darwin':  # macOS
-                player_cmd = ['afplay', str(audio_file)]
+            elif os.uname().sysname == "Darwin":  # macOS
+                player_cmd = ["afplay", str(audio_file)]
                 use_shell = False
             else:  # Linux and other Unix-like systems
                 # Try common Linux audio players
-                for player in ['mpg123', 'ffplay', 'aplay', 'paplay']:
-                    if subprocess.run(['which', player], capture_output=True).returncode == 0:
-                        if player == 'ffplay':
-                            player_cmd = ['ffplay', '-nodisp', '-autoexit', str(audio_file)]
+                for player in ["mpg123", "ffplay", "aplay", "paplay"]:
+                    if (
+                        subprocess.run(
+                            ["which", player], capture_output=True
+                        ).returncode
+                        == 0
+                    ):
+                        if player == "ffplay":
+                            player_cmd = [
+                                "ffplay",
+                                "-nodisp",
+                                "-autoexit",
+                                str(audio_file),
+                            ]
                         else:
                             player_cmd = [player, str(audio_file)]
                         use_shell = False
                         break
                 else:
-                    raise TTSError("No suitable audio player found. Please install mpg123, ffplay, or another audio player.")
+                    raise TTSError(
+                        "No suitable audio player found. Please install mpg123, ffplay, or another audio player."
+                    )
 
             # Play the audio
             process = await asyncio.create_subprocess_exec(
                 *player_cmd,
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
-                shell=use_shell if os.name == 'nt' else False
+                shell=use_shell if os.name == "nt" else False,
             )
-            
+
             await process.wait()
-            
+
             if process.returncode != 0:
                 raise TTSError(f"Audio player exited with code {process.returncode}")
 
@@ -367,7 +381,9 @@ class SpeakLikeCommand(BaseCommand):
 
 
 # Make the methods available in the base class
-SpeakCommand._get_last_assistant_response = SpeakLikeCommand._get_last_assistant_response
+SpeakCommand._get_last_assistant_response = (
+    SpeakLikeCommand._get_last_assistant_response
+)
 SpeakCommand._validate_voice = SpeakLikeCommand._validate_voice
 SpeakCommand._validate_model = SpeakLikeCommand._validate_model
 SpeakCommand._generate_and_play_tts = SpeakLikeCommand._generate_and_play_tts

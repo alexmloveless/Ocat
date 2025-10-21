@@ -222,3 +222,4 @@ from . import productivity_commands
 from . import tts_commands
 from . import casual_command
 from . import web_commands
+from . import continue_command

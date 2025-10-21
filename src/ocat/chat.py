@@ -74,6 +74,7 @@ class ChatSession:
         # Generate session and thread IDs for vector store
         self.session_id = str(uuid.uuid4())
         self.thread_id = str(uuid.uuid4())
+        self.thread_continuation_seq = 0  # Track thread continuation sequence
         self.logger.debug(f"Session ID: {self.session_id}, Thread ID: {self.thread_id}")
 
         # Initialize vector store for conversation memory
@@ -269,6 +270,7 @@ class ChatSession:
                                         assistant_response=enhanced_response,
                                         thread_id=self.thread_id,
                                         session_id=self.session_id,
+                                        thread_continuation_seq=self.thread_continuation_seq,
                                     )
                                     self.logger.debug(
                                         f"Stored web search exchange {exchange_id} in vector store"
@@ -362,6 +364,7 @@ class ChatSession:
                                 assistant_response=productivity_response,
                                 thread_id=self.thread_id,
                                 session_id=self.session_id,
+                                thread_continuation_seq=self.thread_continuation_seq,
                             )
                             self.logger.debug(
                                 f"Stored productivity exchange {exchange_id} in vector store"
@@ -416,6 +419,7 @@ class ChatSession:
                                 assistant_response=file_response,
                                 thread_id=self.thread_id,
                                 session_id=self.session_id,
+                                thread_continuation_seq=self.thread_continuation_seq,
                             )
                             self.logger.debug(
                                 f"Stored file operation exchange {exchange_id} in vector store"
@@ -462,6 +466,7 @@ class ChatSession:
                         assistant_response=response,
                         thread_id=self.thread_id,
                         session_id=self.session_id,
+                        thread_continuation_seq=self.thread_continuation_seq,
                     )
                     self.logger.debug(f"Stored exchange {exchange_id} in vector store")
                 except VectorStoreError as e:
@@ -807,6 +812,71 @@ Web Search Results:
         self.messages = system_messages
         self.logger.info(
             f"Cleared conversation history ({message_count - len(system_messages)} messages removed)"
+        )
+
+    def continue_thread(self, thread_id: str) -> None:
+        """
+        Continue an existing thread by loading its history.
+
+        Parameters
+        ----------
+        thread_id : str
+            The thread ID to continue
+
+        Raises
+        ------
+        ValueError
+            If thread_id is not found or has no exchanges
+        VectorStoreError
+            If vector store is not available
+        """
+        if not self.vector_store:
+            raise VectorStoreError("Vector store is not available")
+
+        # Load all exchanges for this thread
+        exchanges = self.vector_store.get_exchanges_by_thread_id(thread_id)
+
+        if not exchanges:
+            raise ValueError(f"No exchanges found for thread ID: {thread_id}")
+
+        # Calculate the next continuation sequence
+        max_seq = max((ex.thread_continuation_seq for ex in exchanges), default=0)
+        next_seq = max_seq + 1
+
+        # Clear current conversation (like /clear)
+        self.clear_history()
+
+        # Set thread continuation properties
+        self.thread_id = thread_id
+        self.thread_continuation_seq = next_seq
+
+        # Reload thread history as messages
+        for exchange in exchanges:
+            self.messages.append(Message(role="user", content=exchange.user_prompt))
+            self.messages.append(
+                Message(role="assistant", content=exchange.assistant_response)
+            )
+
+        self.logger.info(
+            f"Continued thread {thread_id} with {len(exchanges)} exchanges (continuation seq: {next_seq})"
+        )
+
+        # Display the thread history to user
+        self.console.print(
+            f"\n📜 Loaded thread history ({len(exchanges)} exchanges):\n",
+            style="bold cyan",
+        )
+
+        for exchange in exchanges:
+            # Display each exchange
+            user_msg = Message(role="user", content=exchange.user_prompt)
+            assistant_msg = Message(role="assistant", content=exchange.assistant_response)
+            self._display_message(user_msg)
+            self._display_message(assistant_msg)
+
+        self.console.print(
+            f"\n✅ Continuing thread {thread_id} (session {self.session_id}, seq {next_seq})\n",
+            style="bold green",
         )
 
     async def _retrieve_context(

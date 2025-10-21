@@ -15,7 +15,7 @@ from .integration import WebSearchIntegration
 
 __all__ = [
     "SearchEngine",
-    "ContentScraper", 
+    "ContentScraper",
     "ContentProcessor",
     "WebSearchIntegration",
 ]
