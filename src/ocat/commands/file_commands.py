@@ -107,6 +107,62 @@ class AttachCommand(BaseCommand):
                 )
             )
 
+            # Ask if user wants to add to vector store - skip in dummy mode
+            if (
+                hasattr(context, "vector_store")
+                and context.vector_store
+                and context.config.vector_store.enabled
+                and not getattr(context, "dummy_mode", False)
+            ):
+                try:
+                    # Ask user if they want to add to vector store
+                    context.console.print(
+                        "\n[yellow]Would you like to also add these files to the vector store for future reference? (y/n)[/yellow]"
+                    )
+
+                    # Get user response (this is a simplified approach - in real implementation
+                    # you might want to use a proper input system)
+                    response = input().lower().strip()
+
+                    if response in ["y", "yes"]:
+                        # Add files to vector store with chunking
+                        total_chunks = 0
+                        thread_id = getattr(context, "thread_id", "attach_session")
+                        session_id = getattr(context, "session_id", "attach_session")
+
+                        for file_path in attached_files:
+                            try:
+                                exchange_ids = context.vector_store.add_file(
+                                    file_path=file_path,
+                                    thread_id=thread_id,
+                                    session_id=session_id,
+                                    metadata={
+                                        "source": "attach_command",
+                                        "attached_in_session": session_id,
+                                        "attached_in_thread": thread_id,
+                                    },
+                                )
+                                total_chunks += len(exchange_ids)
+
+                            except Exception as e:
+                                context.console.print(
+                                    f"[red]Warning: Could not add {file_path} to vector store: {e}[/red]"
+                                )
+
+                        if total_chunks > 0:
+                            context.console.print(
+                                f"[green]✅ Added {len(attached_files)} file(s) to vector store as {total_chunks} chunks[/green]"
+                            )
+
+                except KeyboardInterrupt:
+                    context.console.print(
+                        "\n[yellow]Skipped adding to vector store[/yellow]"
+                    )
+                except Exception as e:
+                    context.console.print(
+                        f"[red]Error with vector store prompt: {e}[/red]"
+                    )
+
             return CommandResult.ok(
                 f"Attached {len(attached_files)} file(s) to conversation."
             )

@@ -8,6 +8,7 @@ import logging
 from . import command, BaseCommand, CommandResult, CommandError
 from ..web_search import SearchEngine, ContentScraper, ContentProcessor
 from ..utils.logging import setup_logger, LogLevel
+from rich.panel import Panel
 
 
 @command(
@@ -120,3 +121,146 @@ class WebSearchCommand(BaseCommand):
             except:
                 pass  # Ignore logging errors in error handler
             return CommandResult.error(f"Web search failed: {e}")
+
+
+@command(
+    name="url",
+    description="Attach content from a single URL to the chat",
+    usage="/url <url>",
+)
+class UrlCommand(BaseCommand):
+    """Command to fetch and attach content from a single URL."""
+
+    async def execute(self, args: List[str], context: Any) -> CommandResult:
+        """
+        Execute the URL command.
+
+        Parameters
+        ----------
+        args : List[str]
+            List containing the URL to fetch
+        context : Any
+            Command execution context (ChatSession)
+
+        Returns
+        -------
+        CommandResult
+            Result of command execution
+        """
+        if not args:
+            return CommandResult.error("No URL specified. Usage: /url <url>")
+
+        if len(args) > 1:
+            return CommandResult.error("Only one URL can be processed at a time.")
+
+        url = args[0].strip()
+
+        # Basic URL validation
+        if not (url.startswith("http://") or url.startswith("https://")):
+            return CommandResult.error("URL must start with http:// or https://")
+
+        try:
+            # Get config from context
+            config = context.config
+
+            # Initialize components
+            logger = setup_logger(
+                "ocat.commands.url", LogLevel[config.logging.level], config
+            )
+            content_scraper = ContentScraper(config)
+
+            logger.info(f"Fetching content from URL: {url}")
+
+            # Scrape content from the URL
+            page_content = await content_scraper.scrape_url(url)
+
+            if not page_content.success:
+                return CommandResult.error(
+                    f"Failed to fetch content from {url}: {page_content.error or 'Unknown error'}"
+                )
+
+            # Create content with header like the attach command
+            title = page_content.title if page_content.title else "Untitled"
+            content_header = f"\n--- URL: {title} ({url}) ---\n"
+            combined_content = content_header + page_content.text
+
+            # Add as user message to the conversation
+            from ..chat import Message
+
+            url_message = Message(
+                role="user", content=f"[URL Content]\n{combined_content}"
+            )
+            context.messages.append(url_message)
+
+            # Display confirmation
+            context.console.print(
+                Panel(
+                    f"URL content attached successfully:\n  • {title}\n  • {url}",
+                    title="URL Attached",
+                    border_style="green",
+                )
+            )
+
+            # Ask if user wants to add to vector store (same as attach command) - skip in dummy mode
+            if (
+                hasattr(context, "vector_store")
+                and context.vector_store
+                and context.config.vector_store.enabled
+                and not getattr(context, "dummy_mode", False)
+            ):
+                try:
+                    # Ask user if they want to add to vector store
+                    context.console.print(
+                        "\n[yellow]Would you like to also add this URL content to the vector store for future reference? (y/n)[/yellow]"
+                    )
+
+                    # Get user response
+                    response = input().lower().strip()
+
+                    if response in ["y", "yes"]:
+                        # Add URL content to vector store
+                        thread_id = getattr(context, "thread_id", "url_session")
+                        session_id = getattr(context, "session_id", "url_session")
+
+                        try:
+                            # Add URL content to vector store as document
+                            exchange_ids = context.vector_store.add_document(
+                                text=page_content.text,
+                                thread_id=thread_id,
+                                session_id=session_id,
+                                source_file=url,  # Use URL as source file
+                                metadata={
+                                    "source": "url_command",
+                                    "url": url,
+                                    "title": title,
+                                    "attached_in_session": session_id,
+                                    "attached_in_thread": thread_id,
+                                },
+                            )
+
+                            context.console.print(
+                                f"[green]✅ Added URL content to vector store as {len(exchange_ids)} chunk(s)[/green]"
+                            )
+
+                        except Exception as e:
+                            context.console.print(
+                                f"[red]Warning: Could not add URL content to vector store: {e}[/red]"
+                            )
+
+                except KeyboardInterrupt:
+                    context.console.print(
+                        "\n[yellow]Skipped adding to vector store[/yellow]"
+                    )
+                except Exception as e:
+                    context.console.print(
+                        f"[red]Error with vector store prompt: {e}[/red]"
+                    )
+
+            return CommandResult.ok(f"Attached content from {url} to conversation.")
+
+        except Exception as e:
+            try:
+                logger.error(f"URL command failed: {e}")
+            except:
+                pass  # Ignore logging errors in error handler
+            return CommandResult.error(f"Failed to fetch URL content: {e}")

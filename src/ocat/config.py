@@ -129,6 +129,47 @@ class VectorStoreConfig(BaseModel):
     )
 
 
+class ChunkingConfig(BaseModel):
+    """
+    Document chunking configuration.
+
+    Attributes
+    ----------
+    strategy : str
+        Chunking strategy (truncate, fixed_size, semantic, hybrid)
+    chunk_size : int
+        Target chunk size in characters
+    chunk_overlap : int
+        Overlap between chunks in characters
+    max_chunk_size : int
+        Maximum chunk size (hard limit for semantic chunking)
+    preserve_sentence_boundaries : bool
+        Whether to preserve sentence boundaries when possible
+    """
+
+    strategy: str = Field(default="semantic", description="Chunking strategy")
+    chunk_size: int = Field(
+        default=1000, gt=0, description="Target chunk size in characters"
+    )
+    chunk_overlap: int = Field(
+        default=100, ge=0, description="Overlap between chunks in characters"
+    )
+    max_chunk_size: int = Field(
+        default=1500, gt=0, description="Maximum chunk size (hard limit)"
+    )
+    preserve_sentence_boundaries: bool = Field(
+        default=True, description="Preserve sentence boundaries when possible"
+    )
+
+    @field_validator("strategy")
+    def validate_strategy(cls, v):
+        """Validate chunking strategy is one of the accepted values."""
+        valid_strategies = ["truncate", "fixed_size", "semantic", "hybrid"]
+        if v.lower() not in valid_strategies:
+            raise ValueError(f"Chunking strategy must be one of: {valid_strategies}")
+        return v.lower()
+
+
 class EmbeddingConfig(BaseModel):
     """
     Embedding model configuration.
@@ -140,7 +181,7 @@ class EmbeddingConfig(BaseModel):
     dimensions : int
         Embedding vector dimensions
     chunk_size : int
-        Text chunk size for embeddings
+        Text chunk size for embeddings (deprecated, use chunking.chunk_size)
     """
 
     model: str = Field(
@@ -149,7 +190,11 @@ class EmbeddingConfig(BaseModel):
     dimensions: int = Field(
         default=1536, gt=0, description="Embedding vector dimensions"
     )
-    chunk_size: int = Field(default=1000, gt=0, description="Text chunk size")
+    chunk_size: int = Field(
+        default=1000,
+        gt=0,
+        description="Text chunk size (deprecated, use chunking.chunk_size)",
+    )
 
 
 class DisplayConfig(BaseModel):
@@ -378,12 +423,16 @@ class Config(BaseModel):
     ----------
     profile_name : Optional[str]
         Name of the profile for this configuration
+    debug : bool
+        Enable comprehensive debug mode with detailed logging
     llm : ModelConfig
         LLM model configuration
     vector_store : VectorStoreConfig
         Vector store configuration
     embedding : EmbeddingConfig
         Embedding configuration
+    chunking : ChunkingConfig
+        Document chunking configuration
     display : DisplayConfig
         Display and UI configuration
     productivity : ProductivityConfig
@@ -401,9 +450,11 @@ class Config(BaseModel):
     """
 
     profile_name: Optional[str] = Field(default=None, description="Profile name")
+    debug: bool = Field(default=False, description="Enable comprehensive debug mode")
     llm: ModelConfig = Field(default_factory=ModelConfig)
     vector_store: VectorStoreConfig = Field(default_factory=VectorStoreConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
+    chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     display: DisplayConfig = Field(default_factory=DisplayConfig)
     productivity: ProductivityConfig = Field(default_factory=ProductivityConfig)
     file_tools: FileToolsConfig = Field(default_factory=FileToolsConfig)
@@ -553,6 +604,13 @@ class Config(BaseModel):
         cli_overrides : Dict[str, Any]
             Dictionary of CLI argument overrides
         """
+        # Debug flag override (process first as it affects logging)
+        if cli_overrides.get("debug"):
+            self.debug = True
+            # Automatically set logging to DEBUG when debug flag is enabled
+            self.logging.level = "DEBUG"
+            self.logging.show_context = True
+
         # Model configuration overrides
         if cli_overrides.get("model"):
             self.llm.model = cli_overrides["model"]
@@ -571,8 +629,8 @@ class Config(BaseModel):
                 "similarity_threshold"
             ]
 
-        # Logging configuration overrides
-        if cli_overrides.get("log_level"):
+        # Logging configuration overrides (only if debug is not enabled)
+        if cli_overrides.get("log_level") and not self.debug:
             self.logging.level = cli_overrides["log_level"]
 
         # Display configuration overrides

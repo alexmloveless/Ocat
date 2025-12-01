@@ -37,6 +37,7 @@ from langgraph.checkpoint.base import (
 from .config import Config
 from .exceptions import VectorStoreError
 from .utils.logging import setup_logger, LogLevel
+from .chunking import DocumentChunker, ChunkingStrategy, DocumentChunk
 
 
 @dataclass
@@ -142,11 +143,35 @@ class ConversationVectorStore:
             name="conversation", metadata={"hnsw:space": "cosine"}
         )
 
+        # Initialize document chunker
+        self.chunker = DocumentChunker(
+            strategy=ChunkingStrategy(config.chunking.strategy),
+            chunk_size=config.chunking.chunk_size,
+            chunk_overlap=config.chunking.chunk_overlap,
+            max_chunk_size=config.chunking.max_chunk_size,
+            preserve_sentence_boundaries=config.chunking.preserve_sentence_boundaries,
+        )
+
         # Initialize LangGraph checkpoint memory with existing exchanges
         self._initialize_checkpoint_memory()
 
+        if config.debug:
+            self.logger.debug(f"Vector store configuration:")
+            self.logger.debug(f"  - Path: {self.store_path}")
+            self.logger.debug(f"  - Embedding model: {config.embedding.model}")
+            self.logger.debug(f"  - Dimensions: {config.embedding.dimensions}")
+            self.logger.debug(f"  - Similarity threshold: {config.vector_store.similarity_threshold}")
+            self.logger.debug(f"  - Chunking strategy: {config.chunking.strategy}")
+            
         self.logger.info(f"Vector store initialized at {self.store_path}")
-        self.logger.debug(f"Loaded {len(self.metadata)} existing exchanges")
+        if config.debug:
+            self.logger.debug(f"Loaded {len(self.metadata)} existing exchanges from metadata")
+            if self.openai_client:
+                self.logger.debug("OpenAI client initialized for embeddings")
+            else:
+                self.logger.debug("No OpenAI API key found - embeddings will use ChromaDB defaults")
+        else:
+            self.logger.debug(f"Loaded {len(self.metadata)} existing exchanges")
 
     def add_exchange(
         self,
@@ -186,6 +211,14 @@ class ConversationVectorStore:
             If embedding generation or storage fails
         """
         try:
+            if self.config.debug:
+                self.logger.debug(f"Adding exchange to vector store:")
+                self.logger.debug(f"  - User prompt: '{user_prompt[:100]}{'...' if len(user_prompt) > 100 else ''}'")
+                self.logger.debug(f"  - Response: '{assistant_response[:100]}{'...' if len(assistant_response) > 100 else ''}'")
+                self.logger.debug(f"  - Thread ID: {thread_id}")
+                self.logger.debug(f"  - Session ID: {session_id}")
+                self.logger.debug(f"  - Thread continuation seq: {thread_continuation_seq}")
+            
             # Generate unique exchange ID
             exchange_id = str(uuid.uuid4())
 
@@ -207,6 +240,10 @@ class ConversationVectorStore:
 
             # Generate combined text for ChromaDB
             combined_text = f"User: {user_prompt}\nAssistant: {assistant_response}"
+            
+            if self.config.debug:
+                self.logger.debug(f"Generated exchange ID: {exchange_id}")
+                self.logger.debug(f"Combined text length: {len(combined_text)} characters")
 
             # Store in ChromaDB (convert metadata to compatible format)
             metadata_dict = asdict(exchange)
@@ -284,6 +321,198 @@ class ConversationVectorStore:
             self.logger.error(f"Failed to add exchange to vector store: {e}")
             raise VectorStoreError(f"Failed to add exchange: {e}")
 
+    def add_document(
+        self,
+        text: str,
+        thread_id: str,
+        session_id: str,
+        source_file: Optional[str] = None,
+        document_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> List[str]:
+        """
+        Add a document to the vector store using intelligent chunking.
+
+        Parameters
+        ----------
+        text : str
+            The document text to add
+        thread_id : str
+            Thread ID for the session
+        session_id : str
+            Session ID for the chat session
+        source_file : Optional[str]
+            Path to source file if applicable
+        document_id : Optional[str]
+            Document ID for linking chunks (auto-generated if not provided)
+        metadata : Optional[Dict[str, Any]]
+            Additional metadata to include with all chunks
+
+        Returns
+        -------
+        List[str]
+            List of exchange IDs for the added chunks
+
+        Raises
+        ------
+        VectorStoreError
+            If chunking or storage fails
+        """
+        try:
+            # Initialize metadata with session/thread info
+            doc_metadata = metadata.copy() if metadata else {}
+            doc_metadata.update(
+                {
+                    "thread_id": thread_id,
+                    "session_id": session_id,
+                    "is_document_chunk": True,
+                }
+            )
+
+            # Chunk the document
+            chunks = self.chunker.chunk_text(
+                text=text,
+                source_file=source_file,
+                document_id=document_id,
+                metadata=doc_metadata,
+            )
+
+            if not chunks:
+                raise VectorStoreError("Document chunking produced no chunks")
+
+            # Add each chunk to the vector store
+            exchange_ids = []
+
+            for chunk in chunks:
+                # Create exchange metadata with chunk info
+                chunk_metadata = asdict(chunk)
+
+                # Add as an exchange with special markers
+                exchange_id = self.add_exchange(
+                    user_prompt=f"[Document Chunk {chunk.chunk_index + 1}/{chunk.total_chunks}]",
+                    assistant_response=chunk.content,
+                    thread_id=thread_id,
+                    session_id=session_id,
+                    prior_exchange_ids=[],
+                )
+
+                # Update the stored metadata to include chunk information
+                if exchange_id in self.metadata:
+                    exchange = self.metadata[exchange_id]
+                    exchange.metadata = chunk_metadata
+
+                    # Update ChromaDB metadata too
+                    try:
+                        # Convert prior_exchange_ids list to comma-separated string for ChromaDB
+                        chroma_metadata = chunk_metadata.copy()
+                        if "metadata" in chroma_metadata and isinstance(
+                            chroma_metadata["metadata"], dict
+                        ):
+                            # Flatten nested metadata
+                            nested_meta = chroma_metadata.pop("metadata")
+                            chroma_metadata.update(
+                                {f"meta_{k}": str(v) for k, v in nested_meta.items()}
+                            )
+
+                        # Ensure all values are strings/numbers for ChromaDB
+                        for key, value in chroma_metadata.items():
+                            if isinstance(value, (list, dict)):
+                                chroma_metadata[key] = str(value)
+
+                        self.collection.update(
+                            ids=[exchange_id],
+                            metadatas=[chroma_metadata],
+                        )
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Failed to update ChromaDB metadata for chunk {exchange_id}: {e}"
+                        )
+
+                exchange_ids.append(exchange_id)
+
+            self.logger.info(
+                f"Added document with {len(chunks)} chunks to vector store. "
+                f"Document ID: {chunks[0].document_id}"
+            )
+
+            return exchange_ids
+
+        except Exception as e:
+            self.logger.error(f"Failed to add document to vector store: {e}")
+            raise VectorStoreError(f"Failed to add document: {e}")
+
+    def add_file(
+        self,
+        file_path: str,
+        thread_id: str,
+        session_id: str,
+        document_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> List[str]:
+        """
+        Add a file to the vector store using intelligent chunking.
+
+        Parameters
+        ----------
+        file_path : str
+            Path to the file to add
+        thread_id : str
+            Thread ID for the session
+        session_id : str
+            Session ID for the chat session
+        document_id : Optional[str]
+            Document ID for linking chunks (auto-generated if not provided)
+        metadata : Optional[Dict[str, Any]]
+            Additional metadata to include with all chunks
+
+        Returns
+        -------
+        List[str]
+            List of exchange IDs for the added chunks
+
+        Raises
+        ------
+        VectorStoreError
+            If file reading, chunking, or storage fails
+        """
+        try:
+            # Initialize metadata with file info
+            file_metadata = metadata.copy() if metadata else {}
+
+            # Chunk the file
+            chunks = self.chunker.chunk_file(
+                file_path=file_path,
+                document_id=document_id,
+                metadata=file_metadata,
+            )
+
+            if not chunks:
+                raise VectorStoreError(
+                    f"File chunking produced no chunks for {file_path}"
+                )
+
+            # Use the document text method to add chunks
+            # Get text content for the document method
+            with open(file_path, "r", encoding="utf-8") as f:
+                text_content = f.read()
+
+            return self.add_document(
+                text=text_content,
+                thread_id=thread_id,
+                session_id=session_id,
+                source_file=file_path,
+                document_id=chunks[0].document_id,  # Use the generated document_id
+                metadata=file_metadata,
+            )
+
+        except FileNotFoundError:
+            raise VectorStoreError(f"File not found: {file_path}")
+        except UnicodeDecodeError:
+            raise VectorStoreError(f"Cannot read file as text: {file_path}")
+        except Exception as e:
+            self.logger.error(f"Failed to add file to vector store: {e}")
+            raise VectorStoreError(f"Failed to add file: {e}")
+
     def find_similar_exchanges(
         self,
         query_text: str,
@@ -316,23 +545,46 @@ class ConversationVectorStore:
             If similarity search fails
         """
         try:
+            if self.config.debug:
+                self.logger.debug(f"Searching for similar exchanges:")
+                self.logger.debug(f"  - Query: '{query_text[:150]}{'...' if len(query_text) > 150 else ''}'")
+                self.logger.debug(f"  - Requested results: {n_results}")
+                self.logger.debug(f"  - Exclude thread: {exclude_thread_id or 'None'}")
+                self.logger.debug(f"  - Exclude memories: {exclude_memories}")
+                self.logger.debug(f"  - Total exchanges in store: {len(self.metadata)}")
+            
             if len(self.metadata) == 0:
+                if self.config.debug:
+                    self.logger.debug("No exchanges in vector store - returning empty results")
                 return []
 
             # Query ChromaDB for similar exchanges
             # Get more results than needed to allow for filtering
+            if self.config.debug:
+                start_time = time.time()
+                
             results = self.collection.query(
                 query_texts=[query_text], n_results=n_results * 2
             )
+            
+            if self.config.debug:
+                search_time = time.time() - start_time
+                raw_results_count = len(results["ids"][0]) if results["ids"] and results["ids"][0] else 0
+                self.logger.debug(f"ChromaDB search completed in {search_time:.3f}s, found {raw_results_count} raw results")
 
             # Filter by exclude_thread_id and limit to n_results
             similar_exchanges = []
+            filtered_count = 0
+            memory_filtered_count = 0
+            thread_filtered_count = 0
+            
             for i, exchange_id in enumerate(results["ids"][0]):
                 if exchange_id in self.metadata:
                     exchange = self.metadata[exchange_id]
 
                     # Exclude current thread if specified
                     if exclude_thread_id and exchange.thread_id == exclude_thread_id:
+                        thread_filtered_count += 1
                         continue
 
                     # Exclude memories if specified
@@ -342,16 +594,35 @@ class ConversationVectorStore:
                         if i < len(result_metadata):
                             metadata = result_metadata[i] or {}
                             if metadata.get("entity_type") == "memory":
+                                memory_filtered_count += 1
                                 continue
 
                     similar_exchanges.append(exchange)
+                    
+                    if self.config.debug:
+                        # Get similarity score if available
+                        distance = None
+                        if "distances" in results and results["distances"] and len(results["distances"][0]) > i:
+                            distance = results["distances"][0][i]
+                            similarity = 1.0 - distance if distance is not None else None
+                        else:
+                            similarity = None
+                        
+                        score_info = f" (similarity: {similarity:.3f})" if similarity is not None else ""
+                        self.logger.debug(f"  Result {len(similar_exchanges)}: {exchange_id[:8]}... - '{exchange.user_prompt[:80]}{'...' if len(exchange.user_prompt) > 80 else ''}''{score_info}")
 
                     if len(similar_exchanges) >= n_results:
                         break
 
-            self.logger.debug(
-                f"Found {len(similar_exchanges)} similar exchanges for query using ChromaDB"
-            )
+            if self.config.debug:
+                self.logger.debug(f"Similarity search filtering results:")
+                self.logger.debug(f"  - Found {len(similar_exchanges)} relevant exchanges (after filtering)")
+                self.logger.debug(f"  - Filtered out {thread_filtered_count} from current thread")
+                self.logger.debug(f"  - Filtered out {memory_filtered_count} memory entries")
+            else:
+                self.logger.debug(
+                    f"Found {len(similar_exchanges)} similar exchanges for query using ChromaDB"
+                )
 
             return similar_exchanges
 

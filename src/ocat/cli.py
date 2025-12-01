@@ -245,6 +245,10 @@ def main(args: Optional[List[str]] = None) -> int:
         # Profile name override
         if getattr(parsed_args, "profile", None):
             cli_overrides["profile"] = parsed_args.profile
+        
+        # Debug flag override
+        if getattr(parsed_args, "debug", False):
+            cli_overrides["debug"] = True
 
         # Load configuration with CLI overrides
         config = Config.load(
@@ -254,6 +258,33 @@ def main(args: Optional[List[str]] = None) -> int:
         # Set up logging after config is loaded
         logger = setup_logger("ocat.cli", LogLevel[config.logging.level], config)
         logger.info(f"Starting Ocat CLI with model: {config.llm.model}")
+        
+        # Initialize chat session (check for dummy mode and casual mode)
+        dummy_mode = getattr(parsed_args, "dummy_mode", False)
+        casual_mode_start = getattr(parsed_args, "casual", False)
+        
+        # Show debug startup information if debug mode is enabled
+        if config.debug:
+            from rich.panel import Panel
+            debug_info = [
+                f"🐛 **Debug Mode Enabled**",
+                f"Model: {config.llm.model}",
+                f"Temperature: {config.llm.temperature}",
+                f"Max Tokens: {config.llm.max_tokens}",
+                f"Vector Store: {'Enabled' if config.vector_store.enabled else 'Disabled'}",
+                f"Log Level: {config.logging.level}",
+                f"Profile: {config.profile_name or 'Default'}",
+            ]
+            if dummy_mode:
+                debug_info.append("🎭 **Dummy Mode Active** (Mock LLM responses)")
+            
+            panel = Panel(
+                "\n".join(debug_info),
+                title="Debug Information",
+                border_style="yellow",
+                padding=(1, 2),
+            )
+            console.print(panel)
 
         # Handle headless mode operations
         if (
@@ -279,9 +310,6 @@ def main(args: Optional[List[str]] = None) -> int:
         # Display welcome message
         display_welcome(console, config)
 
-        # Initialize chat session (check for dummy mode and casual mode)
-        dummy_mode = getattr(parsed_args, "dummy_mode", False)
-        casual_mode_start = getattr(parsed_args, "casual", False)
         chat_session = ChatSession(config, console, dummy_mode=dummy_mode)
 
         # Enable casual mode at startup if requested
@@ -517,7 +545,7 @@ async def run_interactive_chat(
             break
         except Exception as e:
             console.print(f"Unexpected error: {e}", style="red")
-            if config.logging.level == "DEBUG":
+            if config.debug:
                 import traceback
 
                 console.print(traceback.format_exc(), style="dim red")

@@ -64,7 +64,12 @@ class ChatSession:
 
         # Set up logging for chat session
         self.logger = setup_logger("ocat.chat", LogLevel[config.logging.level], config)
-        self.logger.debug("Chat session initialized")
+        if config.debug:
+            self.logger.debug(f"Chat session initialized - Debug mode enabled")
+            self.logger.debug(f"Dummy mode: {dummy_mode}")
+            self.logger.debug(f"Model: {config.llm.model}, Temperature: {config.llm.temperature}")
+        else:
+            self.logger.debug("Chat session initialized")
 
         # Initialize current working directory for file operations
         from pathlib import Path
@@ -185,6 +190,9 @@ class ChatSession:
         user_input : str
             The user's input message
         """
+        if self.config.debug:
+            self.logger.debug(f"Processing user message: '{user_input[:100]}{'...' if len(user_input) > 100 else ''}' (length: {len(user_input)} chars)")
+        
         # Handle answer to memory prompt
         if self._pending_memory_fact:
             answer = user_input.lower().strip()
@@ -219,8 +227,15 @@ class ChatSession:
         # Check if this is a slash command
         if self.command_parser.is_command(user_input):
             try:
-                self.logger.debug(f"Processing slash command: {user_input}")
+                if self.config.debug:
+                    self.logger.debug(f"Detected slash command: {user_input}")
+                    self.logger.debug(f"Routing to command parser")
+                else:
+                    self.logger.debug(f"Processing slash command: {user_input}")
                 result = await self.command_parser.execute_command(user_input, self)
+                
+                if self.config.debug:
+                    self.logger.debug(f"Command result: success={result.success}, message='{result.message}'")
 
                 if not result.success:
                     self.console.print(
@@ -330,9 +345,11 @@ class ChatSession:
             )
         ):
             try:
-                self.logger.debug(
-                    f"Routing to productivity agent: {user_input[:50]}..."
-                )
+                if self.config.debug:
+                    self.logger.debug(f"Detected productivity marker '{routing_marker}' in input")
+                    self.logger.debug(f"Routing to productivity agent: {user_input[:50]}...")
+                else:
+                    self.logger.debug(f"Routing to productivity agent: {user_input[:50]}...")
 
                 # Strip the routing marker from the input before processing
                 productivity_input = user_input.strip()
@@ -356,8 +373,8 @@ class ChatSession:
                     )
                     self._display_message(assistant_message)
 
-                    # Store exchange in vector store
-                    if self.vector_store:
+                    # Store exchange in vector store (skip in dummy mode)
+                    if self.vector_store and not self.dummy_mode:
                         try:
                             exchange_id = self.vector_store.add_exchange(
                                 user_prompt=user_input,
@@ -411,8 +428,8 @@ class ChatSession:
                     assistant_message = Message(role="assistant", content=file_response)
                     self._display_message(assistant_message)
 
-                    # Store exchange in vector store
-                    if self.vector_store:
+                    # Store exchange in vector store (skip in dummy mode)
+                    if self.vector_store and not self.dummy_mode:
                         try:
                             exchange_id = self.vector_store.add_exchange(
                                 user_prompt=user_input,
@@ -458,8 +475,8 @@ class ChatSession:
             # Display assistant message
             self._display_message(assistant_message)
 
-            # Store exchange in vector store for future context retrieval
-            if self.vector_store:
+            # Store exchange in vector store for future context retrieval (skip in dummy mode)
+            if self.vector_store and not self.dummy_mode:
                 try:
                     exchange_id = self.vector_store.add_exchange(
                         user_prompt=user_input,
@@ -564,19 +581,37 @@ class ChatSession:
             # Fallback to empty query if no recent messages
             query_text = ""
 
-        self.logger.debug(
-            f"Context search query includes {len(recent_exchanges)} recent messages (commands/productivity excluded)"
-        )
+        if self.config.debug:
+            self.logger.debug(
+                f"Context search query includes {len(recent_exchanges)} recent messages (commands/productivity excluded)"
+            )
+            if query_text:
+                self.logger.debug(f"Context query text: '{query_text[:200]}{'...' if len(query_text) > 200 else ''}'")
+        else:
+            self.logger.debug(
+                f"Context search query includes {len(recent_exchanges)} recent messages (commands/productivity excluded)"
+            )
 
         # Retrieve similar exchanges and memories for context if vector store is enabled
         context_exchanges, memory_exchanges = await self._retrieve_context(query_text)
+
+        if self.config.debug:
+            self.logger.debug(f"Retrieved {len(context_exchanges)} context exchanges, {len(memory_exchanges)} memories")
 
         # Prepare messages for LLM API, including context if available
         api_messages = self._prepare_messages_with_context(
             context_exchanges, memory_exchanges
         )
 
-        self.logger.debug(f"Sending {len(api_messages)} messages to LLM backend")
+        if self.config.debug:
+            total_chars = sum(len(str(msg.get('content', ''))) for msg in api_messages)
+            self.logger.debug(f"Sending {len(api_messages)} messages to LLM backend (total {total_chars} chars)")
+            for i, msg in enumerate(api_messages):
+                role = msg.get('role', 'unknown')
+                content_preview = str(msg.get('content', ''))[:100] + ('...' if len(str(msg.get('content', ''))) > 100 else '')
+                self.logger.debug(f"Message {i+1}: {role} - '{content_preview}'")
+        else:
+            self.logger.debug(f"Sending {len(api_messages)} messages to LLM backend")
 
         # Show progress indicator for non-dummy mode with better cancellation support
         if not self.dummy_mode:
@@ -593,10 +628,19 @@ class ChatSession:
 
                 try:
                     # Add timeout and better error handling
+                    if self.config.debug:
+                        start_time = time.time()
+                        self.logger.debug("Starting LLM API request...")
+                    
                     response = await asyncio.wait_for(
                         self.llm_backend.generate_response(api_messages),
                         timeout=120.0,  # 2 minute timeout
                     )
+                    
+                    if self.config.debug:
+                        end_time = time.time()
+                        duration = end_time - start_time
+                        self.logger.debug(f"LLM API request completed in {duration:.2f}s")
                 except asyncio.TimeoutError:
                     self.logger.error("LLM request timed out")
                     raise LLMError("Request timed out after 2 minutes")
@@ -620,13 +664,23 @@ class ChatSession:
 
                 try:
                     # Add a small delay to simulate processing
+                    if self.config.debug:
+                        self.logger.debug("Generating mock response (dummy mode)...")
                     await asyncio.sleep(0.5)
                     response = await self.llm_backend.generate_response(api_messages)
                 except Exception as e:
                     self.logger.error(f"Mock backend error: {e}")
                     raise LLMError(f"Failed to generate mock response: {e}")
 
-        self.logger.debug(f"Received response with {len(response)} characters")
+        if self.config.debug:
+            # Estimate token counts for debug output
+            estimated_input_tokens = sum(len(str(msg.get('content', '')).split()) for msg in api_messages) 
+            estimated_output_tokens = len(response.split())
+            self.logger.debug(f"Received response with {len(response)} characters (~{estimated_output_tokens} tokens)")
+            self.logger.debug(f"Estimated token usage: {estimated_input_tokens} input + {estimated_output_tokens} output = {estimated_input_tokens + estimated_output_tokens} total")
+            self.logger.debug(f"Response preview: '{response[:150]}{'...' if len(response) > 150 else ''}'")
+        else:
+            self.logger.debug(f"Received response with {len(response)} characters")
         return response
 
     async def _generate_response_with_search_context(
@@ -870,7 +924,9 @@ Web Search Results:
         for exchange in exchanges:
             # Display each exchange
             user_msg = Message(role="user", content=exchange.user_prompt)
-            assistant_msg = Message(role="assistant", content=exchange.assistant_response)
+            assistant_msg = Message(
+                role="assistant", content=exchange.assistant_response
+            )
             self._display_message(user_msg)
             self._display_message(assistant_msg)
 

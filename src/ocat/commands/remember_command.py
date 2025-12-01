@@ -79,6 +79,15 @@ class RememberCommand(BaseCommand):
             # Create tagged text for storage
             tagged_text = f"<{remember_type}>{remember_text}</{remember_type}>"
 
+            # Skip vector store writes in dummy mode
+            if getattr(context, "dummy_mode", False):
+                context.console.print(
+                    f"✅ Remembered {remember_type}: {remember_text} (dummy mode - not actually stored)", style="green"
+                )
+                return CommandResult.ok(
+                    f"Stored {remember_type} information (dummy mode - not actually stored)"
+                )
+
             # Add to vector store with only the tagged statement
             exchange_id = context.vector_store.add_exchange(
                 user_prompt=tagged_text,

@@ -52,24 +52,140 @@ class VectorAddCommand(BaseCommand):
             # Join all arguments as the text to add
             text_content = " ".join(args)
 
-            # Add to vector store using the correct method
-            exchange_id = context.vector_store.add_exchange(
-                user_prompt=text_content,
-                assistant_response="[Manual addition to vector store]",
-                thread_id=getattr(context, "thread_id", "manual"),
-                session_id=getattr(context, "session_id", "manual"),
-            )
+            # Get thread and session IDs
+            thread_id = getattr(context, "thread_id", "manual")
+            session_id = getattr(context, "session_id", "manual")
 
-            context.console.print(
-                f"✅ Text added to vector store with ID: {exchange_id}", style="green"
-            )
+            # Use intelligent chunking for long documents
+            if len(text_content) > context.config.chunking.chunk_size:
+                # Add as document with chunking
+                exchange_ids = context.vector_store.add_document(
+                    text=text_content,
+                    thread_id=thread_id,
+                    session_id=session_id,
+                    metadata={
+                        "source": "vadd_command",
+                        "manual_entry": True,
+                    },
+                )
 
-            return CommandResult.ok(
-                f"Added text to vector store with ID: {exchange_id}"
-            )
+                context.console.print(
+                    f"✅ Long text added to vector store as {len(exchange_ids)} chunks",
+                    style="green",
+                )
+
+                return CommandResult.ok(
+                    f"Added long text as {len(exchange_ids)} chunks to vector store"
+                )
+            else:
+                # Add as single exchange for short text (original behavior)
+                exchange_id = context.vector_store.add_exchange(
+                    user_prompt=text_content,
+                    assistant_response="[Manual addition to vector store]",
+                    thread_id=thread_id,
+                    session_id=session_id,
+                )
+
+                context.console.print(
+                    f"✅ Text added to vector store with ID: {exchange_id}",
+                    style="green",
+                )
+
+                return CommandResult.ok(
+                    f"Added text to vector store with ID: {exchange_id}"
+                )
 
         except Exception as e:
             return CommandResult.error(f"Failed to add to vector store: {e}")
+
+
+@command(
+    name="vdoc",
+    description="Add a document file to the vector store with intelligent chunking",
+    usage="/vdoc <file_path>",
+)
+class VectorDocCommand(BaseCommand):
+    """Command to add a document file directly to the vector store with chunking."""
+
+    async def execute(self, args: List[str], context: Any) -> CommandResult:
+        """
+        Execute the vdoc command.
+
+        Parameters
+        ----------
+        args : List[str]
+            Command arguments - file path to add
+        context : Any
+            Command execution context (ChatSession)
+
+        Returns
+        -------
+        CommandResult
+            Result of command execution
+        """
+        if not args:
+            return CommandResult.error("No file specified. Usage: /vdoc <file_path>")
+
+        try:
+            # Check if vector store is enabled
+            if not context.config.vector_store.enabled:
+                return CommandResult.error(
+                    "Vector store is not enabled in configuration."
+                )
+
+            if not hasattr(context, "vector_store") or context.vector_store is None:
+                return CommandResult.error("Vector store is not initialized.")
+
+            file_path = args[0]
+
+            # Get thread and session IDs
+            thread_id = getattr(context, "thread_id", "vdoc_session")
+            session_id = getattr(context, "session_id", "vdoc_session")
+
+            # Resolve path with location aliases
+            from ..utils import resolve_path_with_aliases
+
+            try:
+                resolved_path = resolve_path_with_aliases(
+                    file_path, context.config.locations
+                )
+            except ValueError as e:
+                return CommandResult.error(f"Location alias error: {e}")
+
+            # Add file to vector store with chunking
+            exchange_ids = context.vector_store.add_file(
+                file_path=str(resolved_path),
+                thread_id=thread_id,
+                session_id=session_id,
+                metadata={
+                    "source": "vdoc_command",
+                    "command_used": "vdoc",
+                    "added_via_command": True,
+                },
+            )
+
+            # Display success message with chunk count
+            context.console.print(
+                f"✅ Added document to vector store as {len(exchange_ids)} chunks",
+                style="green",
+            )
+
+            # Show file info
+            context.console.print(f"📄 File: {resolved_path.name}")
+            context.console.print(
+                f"🔗 Document chunks linked with IDs: {', '.join(exchange_ids[:3])}{'...' if len(exchange_ids) > 3 else ''}"
+            )
+
+            return CommandResult.ok(
+                f"Added {resolved_path.name} to vector store as {len(exchange_ids)} chunks"
+            )
+
+        except FileNotFoundError:
+            return CommandResult.error(f"File not found: {file_path}")
+        except UnicodeDecodeError:
+            return CommandResult.error(f"Cannot read file as text: {file_path}")
+        except Exception as e:
+            return CommandResult.error(f"Failed to add document to vector store: {e}")
 
 
 @command(
