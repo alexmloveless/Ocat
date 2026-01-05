@@ -7,7 +7,6 @@ for episodic memory and real-time conversation storage.
 """
 
 import hashlib
-import json
 import os
 import time
 import uuid
@@ -109,9 +108,6 @@ class ConversationVectorStore:
         self.store_path = Path(config.vector_store.path)
         self.store_path.mkdir(parents=True, exist_ok=True)
 
-        # Vector store files
-        self.metadata_file = self.store_path / "metadata.json"
-
         # Initialize ChromaDB
         self.dimension = config.embedding.dimensions
         # Disable telemetry to avoid capture() method signature errors
@@ -122,8 +118,6 @@ class ConversationVectorStore:
         )
         self.chroma = Client(chroma_settings)
 
-        # Initialize metadata dict for backward compatibility
-        self.metadata: Dict[str, Exchange] = {}
 
         # Initialize OpenAI client for embeddings
         api_key = os.getenv("OPENAI_API_KEY")
@@ -135,8 +129,6 @@ class ConversationVectorStore:
         # Initialize memory saver using LangGraph
         self.memory_saver = MemorySaver()
 
-        # Load existing metadata data
-        self._load_existing_data()
 
         # Initialize ChromaDB collection
         self.collection = self.chroma.get_or_create_collection(
@@ -165,13 +157,12 @@ class ConversationVectorStore:
             
         self.logger.info(f"Vector store initialized at {self.store_path}")
         if config.debug:
-            self.logger.debug(f"Loaded {len(self.metadata)} existing exchanges from metadata")
+            collection_count = self.collection.count()
+            self.logger.debug(f"ChromaDB collection contains {collection_count} exchanges")
             if self.openai_client:
                 self.logger.debug("OpenAI client initialized for embeddings")
             else:
                 self.logger.debug("No OpenAI API key found - embeddings will use ChromaDB defaults")
-        else:
-            self.logger.debug(f"Loaded {len(self.metadata)} existing exchanges")
 
     def add_exchange(
         self,
@@ -258,8 +249,6 @@ class ConversationVectorStore:
                 metadatas=[metadata_dict],
             )
 
-            # Store metadata for backward compatibility
-            self.metadata[exchange_id] = exchange
 
             # ChromaDB auto-persists with DuckDB backend
 
@@ -312,8 +301,6 @@ class ConversationVectorStore:
 
             self.logger.debug(f"Added exchange {exchange_id} to ChromaDB vector store")
 
-            # Save metadata for backward compatibility
-            self._save_data()
 
             return exchange_id
 
@@ -396,37 +383,32 @@ class ConversationVectorStore:
                     prior_exchange_ids=[],
                 )
 
-                # Update the stored metadata to include chunk information
-                if exchange_id in self.metadata:
-                    exchange = self.metadata[exchange_id]
-                    exchange.metadata = chunk_metadata
-
-                    # Update ChromaDB metadata too
-                    try:
-                        # Convert prior_exchange_ids list to comma-separated string for ChromaDB
-                        chroma_metadata = chunk_metadata.copy()
-                        if "metadata" in chroma_metadata and isinstance(
-                            chroma_metadata["metadata"], dict
-                        ):
-                            # Flatten nested metadata
-                            nested_meta = chroma_metadata.pop("metadata")
-                            chroma_metadata.update(
-                                {f"meta_{k}": str(v) for k, v in nested_meta.items()}
-                            )
-
-                        # Ensure all values are strings/numbers for ChromaDB
-                        for key, value in chroma_metadata.items():
-                            if isinstance(value, (list, dict)):
-                                chroma_metadata[key] = str(value)
-
-                        self.collection.update(
-                            ids=[exchange_id],
-                            metadatas=[chroma_metadata],
+                # Update ChromaDB metadata with chunk information
+                try:
+                    # Convert prior_exchange_ids list to comma-separated string for ChromaDB
+                    chroma_metadata = chunk_metadata.copy()
+                    if "metadata" in chroma_metadata and isinstance(
+                        chroma_metadata["metadata"], dict
+                    ):
+                        # Flatten nested metadata
+                        nested_meta = chroma_metadata.pop("metadata")
+                        chroma_metadata.update(
+                            {f"meta_{k}": str(v) for k, v in nested_meta.items()}
                         )
-                    except Exception as e:
-                        self.logger.warning(
-                            f"Failed to update ChromaDB metadata for chunk {exchange_id}: {e}"
-                        )
+
+                    # Ensure all values are strings/numbers for ChromaDB
+                    for key, value in chroma_metadata.items():
+                        if isinstance(value, (list, dict)):
+                            chroma_metadata[key] = str(value)
+
+                    self.collection.update(
+                        ids=[exchange_id],
+                        metadatas=[chroma_metadata],
+                    )
+                except Exception as e:
+                    self.logger.warning(
+                        f"Failed to update ChromaDB metadata for chunk {exchange_id}: {e}"
+                    )
 
                 exchange_ids.append(exchange_id)
 
@@ -545,15 +527,16 @@ class ConversationVectorStore:
             If similarity search fails
         """
         try:
+            collection_count = self.collection.count()
             if self.config.debug:
                 self.logger.debug(f"Searching for similar exchanges:")
                 self.logger.debug(f"  - Query: '{query_text[:150]}{'...' if len(query_text) > 150 else ''}'")
                 self.logger.debug(f"  - Requested results: {n_results}")
                 self.logger.debug(f"  - Exclude thread: {exclude_thread_id or 'None'}")
                 self.logger.debug(f"  - Exclude memories: {exclude_memories}")
-                self.logger.debug(f"  - Total exchanges in store: {len(self.metadata)}")
+                self.logger.debug(f"  - Total exchanges in store: {collection_count}")
             
-            if len(self.metadata) == 0:
+            if collection_count == 0:
                 if self.config.debug:
                     self.logger.debug("No exchanges in vector store - returning empty results")
                 return []
@@ -578,9 +561,11 @@ class ConversationVectorStore:
             memory_filtered_count = 0
             thread_filtered_count = 0
             
+            result_metadatas = results.get("metadatas", [[]])[0]
             for i, exchange_id in enumerate(results["ids"][0]):
-                if exchange_id in self.metadata:
-                    exchange = self.metadata[exchange_id]
+                if i < len(result_metadatas) and result_metadatas[i]:
+                    metadata = result_metadatas[i]
+                    exchange = self._metadata_to_exchange(exchange_id, metadata)
 
                     # Exclude current thread if specified
                     if exclude_thread_id and exchange.thread_id == exclude_thread_id:
@@ -590,12 +575,9 @@ class ConversationVectorStore:
                     # Exclude memories if specified
                     if exclude_memories:
                         # Check if this is a productivity memory
-                        result_metadata = results.get("metadatas", [[]])[0]
-                        if i < len(result_metadata):
-                            metadata = result_metadata[i] or {}
-                            if metadata.get("entity_type") == "memory":
-                                memory_filtered_count += 1
-                                continue
+                        if metadata.get("entity_type") == "memory":
+                            memory_filtered_count += 1
+                            continue
 
                     similar_exchanges.append(exchange)
                     
@@ -659,7 +641,8 @@ class ConversationVectorStore:
             If memory search fails
         """
         try:
-            if len(self.metadata) == 0:
+            collection_count = self.collection.count()
+            if collection_count == 0:
                 return []
 
             # Query ChromaDB for similar exchanges
@@ -673,22 +656,21 @@ class ConversationVectorStore:
             result_metadata = results.get("metadatas", [[]])[0]
 
             for i, exchange_id in enumerate(results["ids"][0]):
-                if exchange_id in self.metadata:
-                    # Check if this is a productivity memory
-                    if i < len(result_metadata):
-                        metadata = result_metadata[i] or {}
-                        if metadata.get("entity_type") == "memory":
-                            # Check similarity threshold (ChromaDB uses distance, so lower is better)
-                            if i < len(distances):
-                                similarity = (
-                                    1.0 - distances[i]
-                                )  # Convert distance to similarity
-                                if similarity >= similarity_threshold:
-                                    exchange = self.metadata[exchange_id]
-                                    relevant_memories.append(exchange)
+                # Check if this is a productivity memory
+                if i < len(result_metadata) and result_metadata[i]:
+                    metadata = result_metadata[i]
+                    if metadata.get("entity_type") == "memory":
+                        # Check similarity threshold (ChromaDB uses distance, so lower is better)
+                        if i < len(distances):
+                            similarity = (
+                                1.0 - distances[i]
+                            )  # Convert distance to similarity
+                            if similarity >= similarity_threshold:
+                                exchange = self._metadata_to_exchange(exchange_id, metadata)
+                                relevant_memories.append(exchange)
 
-                    if len(relevant_memories) >= n_results:
-                        break
+                if len(relevant_memories) >= n_results:
+                    break
 
             self.logger.debug(
                 f"Found {len(relevant_memories)} relevant memories for query"
@@ -714,7 +696,14 @@ class ConversationVectorStore:
         Optional[Exchange]
             The exchange if found, None otherwise
         """
-        return self.metadata.get(exchange_id)
+        try:
+            results = self.collection.get(ids=[exchange_id])
+            if results["ids"] and results["metadatas"] and results["metadatas"][0]:
+                return self._metadata_to_exchange(exchange_id, results["metadatas"][0])
+            return None
+        except Exception as e:
+            self.logger.error(f"Failed to get exchange {exchange_id}: {e}")
+            return None
 
     def get_exchanges_by_session_id(self, session_id: str) -> List[Exchange]:
         """
@@ -732,7 +721,7 @@ class ConversationVectorStore:
         """
         exchanges = [
             exchange
-            for exchange in self.metadata.values()
+            for exchange in self._get_all_exchanges_from_chromadb()
             if exchange.session_id == session_id
         ]
         return sorted(exchanges, key=lambda x: x.timestamp)
@@ -753,7 +742,7 @@ class ConversationVectorStore:
         """
         exchanges = [
             exchange
-            for exchange in self.metadata.values()
+            for exchange in self._get_all_exchanges_from_chromadb()
             if exchange.thread_id == thread_id
         ]
         return sorted(exchanges, key=lambda x: x.timestamp)
@@ -772,21 +761,21 @@ class ConversationVectorStore:
         bool
             True if exchange was deleted, False if not found
         """
-        if exchange_id in self.metadata:
+        try:
+            # Check if exchange exists
+            results = self.collection.get(ids=[exchange_id])
+            if not results["ids"]:
+                return False
+                
             # Delete from ChromaDB
             self.collection.delete(ids=[exchange_id])
 
-            # Delete from metadata
-            del self.metadata[exchange_id]
-
             # ChromaDB auto-persists with DuckDB backend
-
-            # Save metadata for backward compatibility
-            self._save_data()
-
             self.logger.info(f"Deleted exchange {exchange_id} from ChromaDB")
             return True
-        return False
+        except Exception as e:
+            self.logger.error(f"Failed to delete exchange {exchange_id}: {e}")
+            return False
 
     def get_stats(self) -> Dict[str, Any]:
         """
@@ -797,23 +786,31 @@ class ConversationVectorStore:
         Dict[str, Any]
             Dictionary containing vector store statistics
         """
-        # Count productivity vs conversation exchanges
+        # Get collection count directly from ChromaDB
+        collection_count = self.collection.count()
+        
+        # Count productivity vs conversation exchanges by querying ChromaDB
         productivity_count = 0
         conversation_count = 0
-
-        for exchange in self.metadata.values():
-            # Check if this is a productivity entity (has entity_type in metadata)
-            metadata = getattr(exchange, "metadata", {})
-            if isinstance(metadata, dict) and "entity_type" in metadata:
-                productivity_count += 1
-            else:
-                conversation_count += 1
+        
+        try:
+            all_results = self.collection.get()
+            if all_results["metadatas"]:
+                for metadata in all_results["metadatas"]:
+                    if metadata and metadata.get("entity_type") == "memory":
+                        productivity_count += 1
+                    else:
+                        conversation_count += 1
+        except Exception as e:
+            self.logger.warning(f"Failed to get detailed stats: {e}")
+            # Fallback to just using collection count
+            conversation_count = collection_count
 
         return {
-            "total_exchanges": len(self.metadata),
+            "total_exchanges": collection_count,
             "conversation_exchanges": conversation_count,
             "productivity_exchanges": productivity_count,
-            "collection_count": self.collection.count(),
+            "collection_count": collection_count,
             "store_path": str(self.store_path),
             "dimension": self.dimension,
             "embedding_model": self.config.embedding.model,
@@ -824,7 +821,8 @@ class ConversationVectorStore:
         Initialize LangGraph checkpoint memory with existing exchanges.
         """
         try:
-            for exchange in self.metadata.values():
+            exchanges = self._get_all_exchanges_from_chromadb()
+            for exchange in exchanges:
                 checkpoint_data = {
                     "exchange_id": exchange.exchange_id,
                     "user_prompt": exchange.user_prompt,
@@ -952,43 +950,7 @@ class ConversationVectorStore:
             )
             return self._fallback_embedding(text)
 
-    def _load_existing_data(self) -> None:
-        """
-        Load existing vector store metadata from disk for backward compatibility.
-        """
-        try:
-            # Load metadata for backward compatibility
-            if self.metadata_file.exists():
-                with open(self.metadata_file, "r") as f:
-                    metadata_data = json.load(f)
 
-                for exchange_id, exchange_dict in metadata_data.items():
-                    self.metadata[exchange_id] = Exchange(**exchange_dict)
-
-                self.logger.debug(
-                    f"Loaded {len(self.metadata)} exchanges from metadata"
-                )
-
-        except Exception as e:
-            self.logger.warning(f"Failed to load existing vector store data: {e}")
-            # Continue with empty store
-
-    def _save_data(self) -> None:
-        """
-        Save vector store metadata to disk for backward compatibility.
-        """
-        try:
-            # Save metadata for backward compatibility
-            metadata_dict = {}
-            for exchange_id, exchange in self.metadata.items():
-                metadata_dict[exchange_id] = asdict(exchange)
-
-            with open(self.metadata_file, "w") as f:
-                json.dump(metadata_dict, f, indent=2)
-
-        except Exception as e:
-            self.logger.error(f"Failed to save vector store metadata: {e}")
-            raise VectorStoreError(f"Failed to save vector store metadata: {e}")
 
     def get_episodic_context(
         self,
@@ -1116,3 +1078,60 @@ class ConversationVectorStore:
         )
 
         return pruned_exchanges
+
+    def _metadata_to_exchange(self, exchange_id: str, metadata: Dict[str, Any]) -> Exchange:
+        """
+        Convert ChromaDB metadata dictionary back to Exchange object.
+        
+        Parameters
+        ----------
+        exchange_id : str
+            The exchange ID
+        metadata : Dict[str, Any]
+            ChromaDB metadata dictionary
+            
+        Returns
+        -------
+        Exchange
+            Reconstructed Exchange object
+        """
+        # Convert prior_exchange_ids back from comma-separated string to list
+        prior_ids_str = metadata.get("prior_exchange_ids", "")
+        prior_exchange_ids = prior_ids_str.split(",") if prior_ids_str else []
+        
+        return Exchange(
+            exchange_id=exchange_id,
+            thread_id=metadata.get("thread_id", ""),
+            session_id=metadata.get("session_id", ""),
+            user_prompt=metadata.get("user_prompt", ""),
+            assistant_response=metadata.get("assistant_response", ""),
+            timestamp=float(metadata.get("timestamp", 0.0)),
+            prior_exchange_ids=prior_exchange_ids,
+            thread_session_id=metadata.get("thread_session_id", ""),
+            thread_continuation_seq=int(metadata.get("thread_continuation_seq", 0)),
+        )
+    
+    def _get_all_exchanges_from_chromadb(self) -> List[Exchange]:
+        """
+        Get all exchanges from ChromaDB.
+        
+        Returns
+        -------
+        List[Exchange]
+            All exchanges in the vector store
+        """
+        try:
+            # Get all items from ChromaDB
+            results = self.collection.get()
+            
+            exchanges = []
+            if results["ids"] and results["metadatas"]:
+                for i, exchange_id in enumerate(results["ids"]):
+                    if i < len(results["metadatas"]) and results["metadatas"][i]:
+                        exchange = self._metadata_to_exchange(exchange_id, results["metadatas"][i])
+                        exchanges.append(exchange)
+                        
+            return exchanges
+        except Exception as e:
+            self.logger.error(f"Failed to get all exchanges from ChromaDB: {e}")
+            return []
