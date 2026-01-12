@@ -438,7 +438,9 @@ async def list_tasks(
             status_text = f" with status '{status}'" if status else ""
             return f"No tasks found{status_text}."
 
-        return format_entity_list(tasks, format_type="markdown", title=f"Tasks ({status_enum.value})")
+        return format_entity_list(
+            tasks, format_type="markdown", title=f"Tasks ({status_enum.value})"
+        )
 
     except Exception as e:
         raise ModelRetry(f"Failed to list tasks: {str(e)}. Please try again.")
@@ -491,7 +493,9 @@ async def mark_task_complete(ctx: RunContext[ProductivityStorage], task_id: str)
             return f"{task_id} is not a task. Only tasks can be marked as complete."
 
         # Update to completed status
-        success = ctx.deps.update_entity(task_id, {"status": EntityStatus.COMPLETED.value})
+        success = ctx.deps.update_entity(
+            task_id, {"status": EntityStatus.COMPLETED.value}
+        )
 
         if success:
             return f"Marked task {task_id} as completed: {entity.content}"
@@ -521,7 +525,9 @@ async def create_list_item(
         # Store the list item
         pseudo_id = ctx.deps.create_entity(list_item)
 
-        return f"Created list item {pseudo_id} in '{request.list_name}': {request.content}"
+        return (
+            f"Created list item {pseudo_id} in '{request.list_name}': {request.content}"
+        )
 
     except Exception as e:
         raise ModelRetry(f"Failed to create list item: {str(e)}. Please try again.")
@@ -529,9 +535,9 @@ async def create_list_item(
 
 @productivity_agent.tool
 async def list_items(
-    ctx: RunContext[ProductivityStorage], 
-    list_name: Optional[str] = None, 
-    limit: int = 20
+    ctx: RunContext[ProductivityStorage],
+    list_name: Optional[str] = None,
+    limit: int = 20,
 ) -> str:
     """List all list items, optionally filtered by list name."""
     try:
@@ -541,7 +547,9 @@ async def list_items(
 
         # Filter by list name if specified
         if list_name:
-            items = [item for item in items if item.list_name.lower() == list_name.lower()]
+            items = [
+                item for item in items if item.list_name.lower() == list_name.lower()
+            ]
 
         if not items:
             if list_name:
@@ -580,7 +588,9 @@ async def update_list_item_status(
             # Get the updated entity to verify the change
             updated_entity = ctx.deps.get_entity_by_pseudo_id(item_id)
             if updated_entity:
-                actual_status = updated_entity.status.value if updated_entity.status else "None"
+                actual_status = (
+                    updated_entity.status.value if updated_entity.status else "None"
+                )
                 return f"Updated list item {item_id} status from '{entity.status.value if entity.status else 'None'}' to '{actual_status}': {entity.content}"
             else:
                 return f"Updated list item {item_id} status to '{status}': {entity.content}"
@@ -604,7 +614,9 @@ async def archive_list_item(ctx: RunContext[ProductivityStorage], item_id: str) 
             return f"{item_id} is not a list item. Only list items can be archived."
 
         # Update to archived status
-        success = ctx.deps.update_entity(item_id, {"status": EntityStatus.ARCHIVED.value})
+        success = ctx.deps.update_entity(
+            item_id, {"status": EntityStatus.ARCHIVED.value}
+        )
 
         if success:
             return f"Archived list item {item_id}: {entity.content}"

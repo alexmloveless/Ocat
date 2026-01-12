@@ -262,7 +262,7 @@ def _format_entity_list_markdown(
     for entity in entities:
         type_emoji = {
             EntityType.TASK: "✅",
-            EntityType.EVENT: "📅", 
+            EntityType.EVENT: "📅",
             EntityType.REMINDER: "⏰",
             EntityType.MEMORY: "💾",
             EntityType.LIST_ITEM: "📝",
@@ -273,7 +273,7 @@ def _format_entity_list_markdown(
         if entity.status:
             status_map = {
                 "active": "🔵",
-                "completed": "✅", 
+                "completed": "✅",
                 "in_progress": "🟡",
                 "deleted": "🗑️",
                 "archived": "📦",
@@ -282,11 +282,11 @@ def _format_entity_list_markdown(
 
         # Build task description with category and due date inline
         task_desc = entity.content
-        
+
         # Add category if present
-        if hasattr(entity, 'category') and entity.category:
+        if hasattr(entity, "category") and entity.category:
             task_desc += f" `[{entity.category}]`"
-        
+
         # Add due date if present
         if isinstance(entity, Task) and entity.due_date:
             task_desc += f" 📅 {_format_datetime_short(entity.due_date)}"
@@ -294,7 +294,7 @@ def _format_entity_list_markdown(
             task_desc += f" 📅 {_format_datetime_short(entity.start_datetime)}"
         elif isinstance(entity, Reminder):
             task_desc += f" ⏰ {_format_datetime_short(entity.trigger_datetime)}"
-        
+
         lines.append(
             f"| `{entity.pseudo_id}` | {status_emoji} | {type_emoji} {task_desc} |"
         )

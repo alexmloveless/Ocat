@@ -90,9 +90,10 @@ class ChatSession:
         # Set up logging for chat session
         self.logger = setup_logger("ocat.chat", LogLevel[config.logging.level], config)
         self.logger.debug("Chat session initialized")
-        
+
         # Initialize current working directory for file operations
         from pathlib import Path
+
         self.current_directory = Path.cwd()
 
         # Generate session and thread IDs for vector store
@@ -137,11 +138,13 @@ class ChatSession:
         except Exception as e:
             self.logger.warning(f"Productivity integration disabled: {e}")
             # Continue without productivity features
-        
+
         # Initialize file tools integration
         self.file_integration: Optional[FileIntegration] = None
         try:
-            self.file_integration = create_file_integration_for_session(config, self.current_directory)
+            self.file_integration = create_file_integration_for_session(
+                config, self.current_directory
+            )
         except Exception as e:
             self.logger.warning(f"File tools integration disabled: {e}")
             # Continue without file tools
@@ -166,13 +169,15 @@ class ChatSession:
         # Add productivity capabilities to system prompt if available
         if self.productivity_integration:
             system_content += self.productivity_integration.get_system_prompt_addition()
-        
+
         # Add file tools capabilities to system prompt if available
         if self.file_integration:
             system_content += "\n\n## File Operations Available\n"
             system_content += "You can read, write, and explore files directly. When users ask to read files, "
             system_content += "summarize content, or work with the file system, you have access to these capabilities "
-            system_content += "through integrated tools. Use them naturally in conversation."
+            system_content += (
+                "through integrated tools. Use them naturally in conversation."
+            )
 
         if system_content:
             self.messages.append(Message(role="system", content=system_content))
@@ -183,9 +188,7 @@ class ChatSession:
             productivity_info = (
                 " with productivity features" if self.productivity_integration else ""
             )
-            file_tools_info = (
-                " and file tools" if self.file_integration else ""
-            )
+            file_tools_info = " and file tools" if self.file_integration else ""
             self.logger.info(
                 f"Loaded system prompt from {prompt_count} user file(s){base_prompt_info}{productivity_info}{file_tools_info}"
             )
@@ -276,29 +279,26 @@ class ChatSession:
                 # Fall through to regular processing
 
         # Check for file operation intent
-        if (
-            self.file_integration
-            and self.file_integration.detect_file_intent(user_input)
+        if self.file_integration and self.file_integration.detect_file_intent(
+            user_input
         ):
             try:
-                self.logger.debug(
-                    f"Routing to file agent: {user_input[:50]}..."
-                )
+                self.logger.debug(f"Routing to file agent: {user_input[:50]}...")
 
                 # Update current directory in file integration
                 self.file_integration.update_current_directory(self.current_directory)
 
                 # Process with file agent
-                file_response = await self.file_integration.handle_file_request(user_input)
+                file_response = await self.file_integration.handle_file_request(
+                    user_input
+                )
 
                 if file_response:
                     # Add both user message and file response to conversation
                     user_message = Message(role="user", content=user_input)
                     self.messages.append(user_message)
 
-                    assistant_message = Message(
-                        role="assistant", content=file_response
-                    )
+                    assistant_message = Message(role="assistant", content=file_response)
                     self.messages.append(assistant_message)
 
                     # Display the response

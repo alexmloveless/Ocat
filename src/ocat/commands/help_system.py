@@ -11,6 +11,7 @@ from dataclasses import dataclass
 @dataclass
 class HelpSection:
     """Represents a help section with markdown content."""
+
     title: str
     content: str
     aliases: List[str] = None
@@ -22,26 +23,26 @@ class HelpSection:
 
 class HelpRegistry:
     """Registry for organizing and managing help content."""
-    
+
     def __init__(self):
         self._sections: Dict[str, HelpSection] = {}
         self._initialize_help_content()
-    
+
     def register_section(self, key: str, section: HelpSection) -> None:
         """Register a help section."""
         self._sections[key] = section
         # Also register aliases
         for alias in section.aliases:
             self._sections[alias] = section
-    
+
     def get_section(self, key: str) -> Optional[HelpSection]:
         """Get a help section by key or alias."""
         return self._sections.get(key.lower())
-    
+
     def get_overview(self) -> str:
         """Get the main help overview."""
         return self._generate_overview()
-    
+
     def list_sections(self) -> List[str]:
         """List all available section keys (excluding aliases)."""
         seen = set()
@@ -51,10 +52,10 @@ class HelpRegistry:
                 sections.append(key)
                 seen.add(section)
         return sorted(sections)
-    
+
     def _initialize_help_content(self):
         """Initialize all help content sections."""
-        
+
         # Overview section
         overview = HelpSection(
             title="Ocat Help Overview",
@@ -94,10 +95,10 @@ Use `/help <section>` to get detailed information:
 
 *Type `/help <section>` for detailed documentation on any area.*
 """,
-            aliases=["overview", "main"]
+            aliases=["overview", "main"],
         )
         self.register_section("overview", overview)
-        
+
         # Commands section
         commands = HelpSection(
             title="Slash Commands Reference",
@@ -151,10 +152,10 @@ Use `/help <section>` to get detailed information:
 - **`↑/↓ arrows`** - Navigate command history
 - **`Tab`** - Command auto-completion (where available)
 """,
-            aliases=["cmd", "command", "slash"]
+            aliases=["cmd", "command", "slash"],
         )
         self.register_section("commands", commands)
-        
+
         # Productivity section
         productivity = HelpSection(
             title="Productivity System Guide",
@@ -292,13 +293,20 @@ delete task003, remove event001, forget memory002
 - **Search** works across all productivity content
 - **Integration** with chat means your AI assistant knows your schedule
 """,
-            aliases=["tasks", "events", "reminders", "memories", "productivity", "prod"]
+            aliases=[
+                "tasks",
+                "events",
+                "reminders",
+                "memories",
+                "productivity",
+                "prod",
+            ],
         )
         self.register_section("productivity", productivity)
-        
+
         # Files section
         files = HelpSection(
-            title="File Operations Guide", 
+            title="File Operations Guide",
             content="""# 📁 **File Operations**
 
 Powerful file management capabilities with location aliases for easy access.
@@ -385,10 +393,10 @@ Convenient shortcuts for common filesystem commands:
 - **Wildcards** supported in search patterns
 - **Working directory** persists during your session
 """,
-            aliases=["file", "files", "location", "locations", "paths"]
+            aliases=["file", "files", "location", "locations", "paths"],
         )
         self.register_section("files", files)
-        
+
         # Chat section
         chat = HelpSection(
             title="Chat Features Guide",
@@ -485,10 +493,10 @@ The chat system integrates with your productivity data:
 - **Use context** - the AI remembers your preferences
 - **Interrupt long responses** with Ctrl+C when needed
 """,
-            aliases=["conversation", "ai", "models", "chat"]
+            aliases=["conversation", "ai", "models", "chat"],
         )
         self.register_section("chat", chat)
-        
+
         # Config section
         config = HelpSection(
             title="Configuration Guide",
@@ -613,10 +621,10 @@ ocat  # Run with verbose logging
 - **Version control** your config (without secrets)
 - **Test configuration** with `/vector stats` command
 """,
-            aliases=["configuration", "setup", "config", "settings"]
+            aliases=["configuration", "setup", "config", "settings"],
         )
         self.register_section("config", config)
-        
+
         # Tips section
         tips = HelpSection(
             title="Usage Tips & Best Practices",
@@ -801,10 +809,10 @@ create task: set up new project environment
 - **Build habits** around consistent productivity workflows
 - **Experiment** with different organization patterns to find what works
 """,
-            aliases=["tip", "tips", "best", "practices", "workflow"]
+            aliases=["tip", "tips", "best", "practices", "workflow"],
         )
         self.register_section("tips", tips)
-    
+
     def _generate_overview(self) -> str:
         """Generate the main help overview."""
         return self.get_section("overview").content
@@ -822,22 +830,22 @@ def get_help_registry() -> HelpRegistry:
 def get_help_content(section: Optional[str] = None) -> str:
     """
     Get help content for a specific section or overview.
-    
+
     Parameters
     ----------
     section : Optional[str]
         Help section to retrieve, or None for overview
-        
+
     Returns
     -------
     str
         Formatted help content
     """
     registry = get_help_registry()
-    
+
     if section is None:
         return registry.get_overview()
-    
+
     help_section = registry.get_section(section)
     if help_section is None:
         available_sections = ", ".join(registry.list_sections())
@@ -852,21 +860,23 @@ Use `/help` for the main overview or `/help <section>` for specific topics.
 
 **Example**: `/help productivity` or `/help commands`
 """
-    
+
     return help_section.content
 
 
-def add_help_section(key: str, title: str, content: str, aliases: List[str] = None) -> None:
+def add_help_section(
+    key: str, title: str, content: str, aliases: List[str] = None
+) -> None:
     """
     Add a new help section to the registry.
-    
+
     This function allows developers to easily add new help sections.
-    
+
     Parameters
     ----------
     key : str
         Primary key for the section
-    title : str  
+    title : str
         Section title
     content : str
         Markdown-formatted help content
